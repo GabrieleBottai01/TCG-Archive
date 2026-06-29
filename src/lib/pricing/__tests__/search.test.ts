@@ -1,5 +1,5 @@
 import { it, expect, vi, afterEach } from 'vitest'
-import { searchPokemonCards } from '@/lib/pricing/search'
+import { searchPokemonCards, searchPokemonSets } from '@/lib/pricing/search'
 afterEach(() => vi.restoreAllMocks())
 
 it('maps API cards to search results', async () => {
@@ -13,4 +13,17 @@ it('maps API cards to search results', async () => {
 
 it('returns [] for blank query', async () => {
   expect(await searchPokemonCards('  ')).toEqual([])
+})
+
+it('maps API sets to set search results (logo as image)', async () => {
+  vi.spyOn(global, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+    data: [{ id: 'sv3pt5', name: '151', series: 'Scarlet & Violet',
+      images: { logo: 'http://img/logo.png', symbol: 'http://img/sym.png' } }]
+  }), { status: 200 }))
+  const r = await searchPokemonSets('151', 'key')
+  expect(r).toEqual([{ setId: 'sv3pt5', name: '151', series: 'Scarlet & Violet', imageUrl: 'http://img/logo.png' }])
+})
+
+it('set search returns [] for blank query', async () => {
+  expect(await searchPokemonSets('  ')).toEqual([])
 })
