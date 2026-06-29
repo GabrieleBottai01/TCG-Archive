@@ -47,3 +47,5 @@ next-env.d.ts
 
 # build
 dist/
+
+/src/generated/prisma
