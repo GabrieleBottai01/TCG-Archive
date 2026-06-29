@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useT } from '@/lib/i18n'
-import { formatEUR } from '@/lib/format'
 
 export type SealedSearchResult = {
   name: string
@@ -56,7 +55,11 @@ export function SealedSearch({ onPick }: { onPick: (r: SealedSearchResult) => vo
             <li key={r.externalId}>
               <button
                 type="button"
-                onClick={() => onPick(r)}
+                onClick={() => {
+                  onPick(r)
+                  setQuery('')
+                  setResults([])
+                }}
                 className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-primary-soft transition-colors"
               >
                 {r.imageUrl && (
@@ -65,9 +68,6 @@ export function SealedSearch({ onPick }: { onPick: (r: SealedSearchResult) => vo
                 )}
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium text-fg truncate">{r.name}</span>
-                  {r.priceEur != null && (
-                    <span className="block text-xs text-muted">{formatEUR(r.priceEur)}</span>
-                  )}
                 </span>
               </button>
             </li>
