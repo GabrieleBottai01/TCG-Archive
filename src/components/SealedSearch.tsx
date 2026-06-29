@@ -2,23 +2,24 @@
 
 import { useState, useEffect } from 'react'
 import { useT } from '@/lib/i18n'
+import { formatEUR } from '@/lib/format'
 
-export type SetSearchResult = {
-  setId: string
+export type SealedSearchResult = {
   name: string
-  series: string
   imageUrl: string | null
+  priceEur: number | null
+  externalId: string
 }
 
-export function SetSearch({ onPick }: { onPick: (r: SetSearchResult) => void }) {
+export function SealedSearch({ onPick }: { onPick: (r: SealedSearchResult) => void }) {
   const t = useT()
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SetSearchResult[]>([])
+  const [results, setResults] = useState<SealedSearchResult[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const term = query.trim()
-    const delay = term ? 300 : 0
+    const delay = term ? 400 : 0
     const id = setTimeout(async () => {
       if (!term) {
         setResults([])
@@ -27,8 +28,8 @@ export function SetSearch({ onPick }: { onPick: (r: SetSearchResult) => void }) 
       }
       setLoading(true)
       try {
-        const res = await fetch(`/api/sets/search?q=${encodeURIComponent(term)}`)
-        const data = (await res.json()) as { results?: SetSearchResult[] }
+        const res = await fetch(`/api/sealed/search?q=${encodeURIComponent(term)}`)
+        const data = (await res.json()) as { results?: SealedSearchResult[] }
         setResults(data.results ?? [])
       } catch {
         setResults([])
@@ -48,10 +49,11 @@ export function SetSearch({ onPick }: { onPick: (r: SetSearchResult) => void }) 
         placeholder={t('m_searchSetPlaceholder')}
         className="w-full rounded border border-border bg-card px-3 py-2 text-sm text-fg placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
+      {loading && <p className="text-xs text-muted">…</p>}
       {results.length > 0 && (
-        <ul className="max-h-56 overflow-y-auto rounded-lg border border-border bg-card divide-y divide-border">
+        <ul className="max-h-64 overflow-y-auto rounded-lg border border-border bg-card divide-y divide-border">
           {results.map((r) => (
-            <li key={r.setId}>
+            <li key={r.externalId}>
               <button
                 type="button"
                 onClick={() => onPick(r)}
@@ -59,11 +61,13 @@ export function SetSearch({ onPick }: { onPick: (r: SetSearchResult) => void }) 
               >
                 {r.imageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={r.imageUrl} alt={r.name} className="h-10 w-16 object-contain shrink-0" />
+                  <img src={r.imageUrl} alt={r.name} className="h-14 w-14 object-contain shrink-0" />
                 )}
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <span className="block font-medium text-fg truncate">{r.name}</span>
-                  <span className="block text-xs text-muted truncate">{r.series}</span>
+                  {r.priceEur != null && (
+                    <span className="block text-xs text-muted">{formatEUR(r.priceEur)}</span>
+                  )}
                 </span>
               </button>
             </li>
