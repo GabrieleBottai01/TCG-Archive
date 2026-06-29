@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { CardSearch, type CardSearchResult } from '@/components/CardSearch'
 import { GAME_LABELS, ITEM_TYPE_LABELS, CONDITION_LABELS } from '@/lib/labels'
 import type { PlainItem } from '@/components/CollectionView'
@@ -77,6 +77,23 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
   const [form, setForm] = useState<FormState>(() => seedForm(item))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // Accessibility: close on Escape, move focus into the dialog on open,
+  // and lock background scroll while the modal is mounted.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    panelRef.current?.querySelector<HTMLElement>('input, select, textarea, button')?.focus()
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [onClose])
 
   const set = (field: keyof FormState, value: string | number) =>
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -158,9 +175,18 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
   const isRaw = form.itemType === 'RAW'
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-      <div className="max-w-lg w-full rounded-lg bg-white p-4 max-h-[90vh] overflow-y-auto shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        className="max-w-lg w-full rounded-lg bg-white p-4 max-h-[90vh] overflow-y-auto shadow-xl"
+      >
+        <h2 id="modal-title" className="text-lg font-semibold text-gray-900 mb-4">
           {item ? 'Modifica articolo' : 'Nuovo articolo'}
         </h2>
 
