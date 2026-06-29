@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Game {
+  POKEMON
+  MAGIC
+  YUGIOH
+  ONEPIECE
+  OTHER
+}
+
+enum ItemType {
+  RAW
+  GRADED
+  SEALED
+}
+
+enum Condition {
+  POOR
+  PLAYED
+  LIGHT_PLAYED
+  GOOD
+  EXCELLENT
+  NEAR_MINT
+  MINT
+}
+
+enum GradingCompany {
+  PSA
+  BGS
+  CGC
+}
+
+enum ValueSource {
+  AUTO
+  MANUAL
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  name      String?
+  items     Item[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Item {
+  id                   String          @id @default(cuid())
+  user                 User            @relation(fields: [userId], references: [id])
+  userId               String
+  game                 Game
+  itemType             ItemType
+  name                 String
+  setName              String?
+  cardNumber           String?
+  language             String?
+  externalId           String?
+  imageUrl             String?
+  condition            Condition?
+  gradingCompany       GradingCompany?
+  grade                String?
+  quantity             Int             @default(1)
+  purchasePrice        Float           @default(0)
+  marketValue          Float           @default(0)
+  marketValueSource    ValueSource     @default(MANUAL)
+  marketValueUpdatedAt DateTime?
+  notes                String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@index([userId])
+}
