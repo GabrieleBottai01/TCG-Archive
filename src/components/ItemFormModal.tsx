@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { CardSearch, type CardSearchResult } from '@/components/CardSearch'
+import { SetSearch, type SetSearchResult } from '@/components/SetSearch'
 import { useT, CONDITION_LABELS } from '@/lib/i18n'
 import { GAME_LABELS, ITEM_TYPE_LABELS } from '@/lib/labels'
 import { ItemImage } from '@/components/ItemImage'
@@ -105,15 +106,27 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     setForm((prev) => ({ ...prev, [field]: value }))
 
   const handlePick = (r: CardSearchResult) => {
+    setForm((prev) => {
+      const raw = prev.itemType === 'RAW'
+      return {
+        ...prev,
+        name: r.name,
+        setName: r.setName,
+        cardNumber: r.cardNumber,
+        imageUrl: r.imageUrl ?? '',
+        externalId: r.externalId,
+        // Auto market price only for raw cards; a graded slab keeps its manual value.
+        ...(raw ? { marketValue: r.lowPrice ?? 0, marketValueSource: 'AUTO' } : {}),
+      }
+    })
+  }
+
+  const handlePickSet = (r: SetSearchResult) => {
     setForm((prev) => ({
       ...prev,
       name: r.name,
-      setName: r.setName,
-      cardNumber: r.cardNumber,
+      setName: r.name,
       imageUrl: r.imageUrl ?? '',
-      externalId: r.externalId,
-      marketValue: r.lowPrice ?? 0,
-      marketValueSource: 'AUTO',
     }))
   }
 
@@ -176,9 +189,11 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     }
   }
 
-  const isPokemonRaw = form.game === 'POKEMON' && form.itemType === 'RAW'
   const isGraded = form.itemType === 'GRADED'
   const isRaw = form.itemType === 'RAW'
+  // Card search for Pokémon singles (raw or graded); set search for sealed products.
+  const isPokemonCardSearch = form.game === 'POKEMON' && (isRaw || isGraded)
+  const isPokemonSealed = form.game === 'POKEMON' && form.itemType === 'SEALED'
 
   // Render via portal at document.body so the modal escapes the <main> stacking
   // context (z-10) and is never intercepted by the footer.
@@ -239,11 +254,19 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
             </select>
           </div>
 
-          {/* Pokémon card search (only for POKEMON + RAW) */}
-          {isPokemonRaw && (
+          {/* Pokémon card search — raw + graded singles share card art */}
+          {isPokemonCardSearch && (
             <div>
               <p className="text-sm font-medium text-fg mb-1">{t('m_searchCard')}</p>
               <CardSearch onPick={handlePick} />
+            </div>
+          )}
+
+          {/* Pokémon set search — sealed products get the official set logo */}
+          {isPokemonSealed && (
+            <div>
+              <p className="text-sm font-medium text-fg mb-1">{t('m_searchSet')}</p>
+              <SetSearch onPick={handlePickSet} />
             </div>
           )}
 
