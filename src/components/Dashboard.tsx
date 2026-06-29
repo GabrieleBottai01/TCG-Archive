@@ -15,6 +15,7 @@ interface DashboardProps {
 
 export function Dashboard({ items }: DashboardProps) {
   const [loading, setLoading] = useState(false)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
 
   const totals = collectionTotals(items)
 
@@ -30,9 +31,17 @@ export function Dashboard({ items }: DashboardProps) {
 
   const handleRefresh = async () => {
     setLoading(true)
+    setRefreshError(null)
     try {
-      await fetch('/api/prices/refresh', { method: 'POST' })
+      const res = await fetch('/api/prices/refresh', { method: 'POST' })
+      if (!res.ok) {
+        setRefreshError('Aggiornamento non riuscito. Riprova più tardi.')
+        return
+      }
+      // Reload so the new market values (and totals) are reflected.
       location.reload()
+    } catch {
+      setRefreshError('Impossibile contattare il server. Controlla la connessione.')
     } finally {
       setLoading(false)
     }
@@ -126,6 +135,11 @@ export function Dashboard({ items }: DashboardProps) {
             {loading ? 'Aggiornamento…' : 'Aggiorna valori'}
           </button>
         </div>
+        {refreshError && (
+          <p role="alert" className="mt-3 text-sm text-red-600">
+            {refreshError}
+          </p>
+        )}
       </section>
     </div>
   )
