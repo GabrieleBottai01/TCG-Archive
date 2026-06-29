@@ -27,9 +27,12 @@ describe('collectionTotals', () => {
 
 describe('filterItems', () => {
   it('filters by game', () => { expect(filterItems([A, B], { game: 'POKEMON' })).toEqual([A]) })
+  it('filters by itemType', () => { expect(filterItems([A, B], { itemType: 'RAW' })).toEqual([A]) })
+  it('filters by condition', () => { expect(filterItems([A, B], { condition: 'MINT' })).toEqual([A]) })
+  it('filters by setName', () => { expect(filterItems([A, B], { setName: 'Alpha' })).toEqual([B]) })
   it('filters by free-text search on name/set, case-insensitive', () => {
     expect(filterItems([A, B], { search: 'chari' })).toEqual([A])
     expect(filterItems([A, B], { search: 'alpha' })).toEqual([B])
   })
-  it('returns all when no filters', () => { expect(filterItems([A, B], {})).toHaveLength(2) })
+  it('returns all when no filters', () => { expect(filterItems([A, B], {})).toEqual([A, B]) })
 })
