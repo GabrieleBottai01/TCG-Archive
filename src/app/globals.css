@@ -71,6 +71,11 @@
   --font-display: var(--font-orbitron);
 }
 
+/* Larger base type scale — rem-based Tailwind sizes scale up with this. */
+html {
+  font-size: 17.5px;
+}
+
 body {
   background-color: var(--bg);
   color: var(--fg);
