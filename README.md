@@ -16,7 +16,7 @@ con filtri per analisi personalizzate. UI responsive (desktop, tablet, smartphon
 
 ## Setup
 
-Richiede Node.js 20+.
+Richiede Node.js 20+ e un database **Postgres** (consigliato [Neon](https://neon.tech), piano gratuito).
 
 ```bash
 # 1. Installa le dipendenze (il postinstall genera il client Prisma)
@@ -24,23 +24,32 @@ npm install
 
 # 2. Configura le variabili d'ambiente
 cp .env.example .env
-#   - DATABASE_URL è già impostata su SQLite (file:./dev.db)
+#   - DATABASE_URL = connection string POOLED di Neon (host con "-pooler")
+#   - DIRECT_URL   = connection string DIRECT di Neon (senza "-pooler"), usata dalla CLI Prisma
 #   - POKEMONTCGIO_API_KEY è opzionale: senza chiave l'API pokemontcg.io
 #     funziona con limiti di rate più bassi. Ottienine una gratis su
 #     https://dev.pokemontcg.io per limiti più alti.
 
-# 3. Crea il database ed esegui il seed dell'utente di default
-npm run db:migrate      # applica le migrazioni (crea dev.db)
-npm run db:seed         # crea l'utente 'default-user' (RICHIESTO)
+# 3. Crea lo schema sul DB ed esegui il seed dell'utente di default
+npm run db:setup        # = prisma db push + prisma db seed
 
 # 4. Avvia in sviluppo
 npm run dev             # http://localhost:3000
 ```
 
-> **Importante:** il seed (`npm run db:seed`) è obbligatorio al primo avvio. Tutti gli
+> **Importante:** il seed (`prisma db seed`) è obbligatorio al primo avvio. Tutti gli
 > articoli appartengono all'utente `default-user`; senza il seed il primo inserimento
 > fallisce con un errore di foreign key. L'app è single-user ora, ma lo schema è già
 > predisposto al multiutente.
+
+## Deploy su Netlify
+
+L'app è pronta per Netlify (Next.js runtime + Neon Postgres). Vedi `netlify.toml`.
+
+1. Crea un progetto su **Neon** e copia le due connection string (pooled → `DATABASE_URL`, direct → `DIRECT_URL`).
+2. Su **Netlify**: *Add new site → Import from GitHub* e seleziona `GabrieleBottai01/TCG-Archive`.
+3. In *Site settings → Environment variables* imposta `DATABASE_URL`, `DIRECT_URL` e (opz.) `POKEMONTCGIO_API_KEY`.
+4. Lancia il deploy: il build command (`prisma db push && prisma db seed && next build`) crea lo schema, esegue il seed e builda. Ogni push su `main` ridistribuisce automaticamente.
 
 ## Comandi utili
 
@@ -52,8 +61,9 @@ npm run dev             # http://localhost:3000
 | `npm test` | Test unitari (Vitest) |
 | `npm run e2e` | Test end-to-end (Playwright, Chromium) |
 | `npm run lint` | ESLint (deve restare senza errori: la build fallisce sugli errori) |
-| `npm run db:migrate` | Applica le migrazioni Prisma |
+| `npm run db:push` | Sincronizza lo schema Prisma sul DB |
 | `npm run db:seed` | Seed dell'utente di default |
+| `npm run db:setup` | `db:push` + `db:seed` insieme |
 
 ## Architettura
 

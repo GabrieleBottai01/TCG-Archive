@@ -10,6 +10,8 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Prisma CLI (db push / seed) uses a DIRECT (non-pooled) connection.
+    // Falls back to DATABASE_URL for local SQLite-free setups.
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });

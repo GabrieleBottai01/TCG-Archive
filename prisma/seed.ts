@@ -1,8 +1,13 @@
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
+import { PrismaNeon } from '@prisma/adapter-neon'
+import { neonConfig } from '@neondatabase/serverless'
+import ws from 'ws'
 import { PrismaClient } from '../src/generated/prisma/client'
 
-const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL ?? 'file:./dev.db',
+neonConfig.webSocketConstructor = ws
+
+// Seeding runs from the Prisma CLI — use the direct (non-pooled) connection.
+const adapter = new PrismaNeon({
+  connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
 })
 const prisma = new PrismaClient({ adapter })
 
