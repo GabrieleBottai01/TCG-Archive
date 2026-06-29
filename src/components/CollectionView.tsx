@@ -6,6 +6,7 @@ import { formatEUR } from '@/lib/format'
 import { Money } from '@/components/Money'
 import { FilterBar } from '@/components/FilterBar'
 import { GAME_LABELS, ITEM_TYPE_LABELS, CONDITION_LABELS } from '@/lib/labels'
+import { ItemFormModal } from '@/components/ItemFormModal'
 
 // Mirrors the Prisma Item shape (plain object, serialized from server)
 export type PlainItem = {
@@ -39,6 +40,29 @@ interface CollectionViewProps {
 export function CollectionView({ initialItems }: CollectionViewProps) {
   const [items, setItems] = useState<PlainItem[]>(initialItems)
   const [filters, setFilters] = useState<Filters>({})
+  const [editing, setEditing] = useState<PlainItem | null>(null)
+  const [showModal, setShowModal] = useState(false)
+
+  const handleSaved = (saved: PlainItem) => {
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.id === saved.id)
+      if (idx >= 0) {
+        const next = [...prev]
+        next[idx] = saved
+        return next
+      }
+      return [saved, ...prev]
+    })
+    setShowModal(false)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Eliminare questo articolo?')) return
+    const res = await fetch(`/api/items/${id}`, { method: 'DELETE' })
+    if (res.ok) {
+      setItems((prev) => prev.filter((i) => i.id !== id))
+    }
+  }
 
   const visible = filterItems(items, filters)
   const totals = collectionTotals(visible)
@@ -51,7 +75,7 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
         <button
           type="button"
           className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-          onClick={() => console.log('Aggiungi articolo — Task 10')}
+          onClick={() => { setEditing(null); setShowModal(true) }}
         >
           Aggiungi
         </button>
@@ -136,14 +160,14 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
                     <button
                       type="button"
                       className="text-xs text-blue-600 hover:underline mr-2"
-                      onClick={() => console.log('Modifica', item.id)}
+                      onClick={() => { setEditing(item); setShowModal(true) }}
                     >
                       Modifica
                     </button>
                     <button
                       type="button"
                       className="text-xs text-red-500 hover:underline"
-                      onClick={() => console.log('Elimina', item.id)}
+                      onClick={() => handleDelete(item.id)}
                     >
                       Elimina
                     </button>
@@ -183,14 +207,14 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
                 <button
                   type="button"
                   className="text-xs text-blue-600 hover:underline"
-                  onClick={() => console.log('Modifica', item.id)}
+                  onClick={() => { setEditing(item); setShowModal(true) }}
                 >
                   Modifica
                 </button>
                 <button
                   type="button"
                   className="text-xs text-red-500 hover:underline"
-                  onClick={() => console.log('Elimina', item.id)}
+                  onClick={() => handleDelete(item.id)}
                 >
                   Elimina
                 </button>
@@ -198,6 +222,13 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
             </li>
           ))}
         </ul>
+      )}
+      {showModal && (
+        <ItemFormModal
+          item={editing ?? undefined}
+          onClose={() => setShowModal(false)}
+          onSaved={handleSaved}
+        />
       )}
     </div>
   )
