@@ -24,7 +24,7 @@ export function SiteNav() {
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-surface/80 backdrop-blur-md">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-6">
         <Link href="/" className="font-display text-lg font-bold text-fg shrink-0">
           TCG<span className="text-primary"> Archive</span>
         </Link>

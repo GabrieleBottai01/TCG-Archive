@@ -149,7 +149,7 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
 
       {/* Gallery view (default) */}
       {visible.length > 0 && view === 'gallery' && (
-        <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 list-none p-0 m-0">
+        <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 list-none p-0 m-0">
           {visible.map((item) => (
             <li
               key={item.id}
