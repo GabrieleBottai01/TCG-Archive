@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { CardSearch, type CardSearchResult } from '@/components/CardSearch'
 import { useT, CONDITION_LABELS } from '@/lib/i18n'
 import { GAME_LABELS, ITEM_TYPE_LABELS } from '@/lib/labels'
@@ -179,7 +180,9 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
   const isGraded = form.itemType === 'GRADED'
   const isRaw = form.itemType === 'RAW'
 
-  return (
+  // Render via portal at document.body so the modal escapes the <main> stacking
+  // context (z-10) and is never intercepted by the footer.
+  return createPortal(
     <div
       className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
@@ -472,6 +475,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
