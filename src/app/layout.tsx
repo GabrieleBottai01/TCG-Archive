@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import { Orbitron, Space_Grotesk } from "next/font/google";
+import { SiteNav } from "@/components/SiteNav";
+import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const orbitron = Orbitron({
+  variable: "--font-orbitron",
   subsets: ["latin"],
+  weight: ["500", "700", "900"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
 });
 
@@ -17,6 +19,9 @@ export const metadata: Metadata = {
   title: "TCG Archive",
   description: "Archivio della tua collezione di carte TCG",
 };
+
+// Set theme + language before paint to avoid a flash of the wrong theme/lang.
+const bootInit = `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');var l=localStorage.getItem('lang');if(l==='en'||l==='it')document.documentElement.lang=l;}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -26,23 +31,18 @@ export default function RootLayout({
   return (
     <html
       lang="it"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${orbitron.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: bootInit }} />
+      </head>
       <body className="min-h-full flex flex-col">
-        <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-6">
-            <span className="font-semibold text-gray-900 tracking-tight">TCG Archive</span>
-            <nav className="flex items-center gap-4 text-sm">
-              <Link href="/" className="text-gray-600 hover:text-gray-900 transition-colors">
-                Dashboard
-              </Link>
-              <Link href="/collezione" className="text-gray-600 hover:text-gray-900 transition-colors">
-                Collezione
-              </Link>
-            </nav>
-          </div>
-        </header>
-        <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6">{children}</main>
+        <SiteNav />
+        <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8">
+          {children}
+        </main>
+        <SiteFooter />
       </body>
     </html>
   );

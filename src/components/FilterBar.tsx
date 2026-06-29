@@ -1,7 +1,11 @@
 'use client'
 
-import { GAME_LABELS, ITEM_TYPE_LABELS, CONDITION_LABELS } from '@/lib/labels'
+import { useT, CONDITION_LABELS } from '@/lib/i18n'
 import type { Filters } from '@/lib/value'
+
+// Enumerate valid keys; labels come from i18n (t('game_*') / t('type_*'))
+const GAME_KEYS = ['POKEMON', 'MAGIC', 'YUGIOH', 'ONEPIECE', 'OTHER'] as const
+const TYPE_KEYS = ['RAW', 'GRADED', 'SEALED'] as const
 
 interface FilterBarProps {
   filters: Filters
@@ -9,7 +13,8 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ filters, onChange }: FilterBarProps) {
-  const inputClass = 'rounded border border-gray-300 px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500'
+  const t = useT()
+  const inputClass = 'rounded border border-border bg-card px-2 py-1 text-sm text-fg placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
   return (
     <div className="flex flex-wrap gap-2 items-center">
@@ -18,11 +23,11 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
         className={inputClass}
         value={filters.game ?? ''}
         onChange={(e) => onChange({ ...filters, game: e.target.value || undefined })}
-        aria-label="Filtra per gioco"
+        aria-label={t('filter_byGame')}
       >
-        <option value="">Tutti i giochi</option>
-        {Object.entries(GAME_LABELS).map(([key, label]) => (
-          <option key={key} value={key}>{label}</option>
+        <option value="">{t('filter_allGames')}</option>
+        {GAME_KEYS.map((key) => (
+          <option key={key} value={key}>{t('game_' + key)}</option>
         ))}
       </select>
 
@@ -31,11 +36,11 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
         className={inputClass}
         value={filters.itemType ?? ''}
         onChange={(e) => onChange({ ...filters, itemType: e.target.value || undefined })}
-        aria-label="Filtra per tipo"
+        aria-label={t('filter_byType')}
       >
-        <option value="">Tutti i tipi</option>
-        {Object.entries(ITEM_TYPE_LABELS).map(([key, label]) => (
-          <option key={key} value={key}>{label}</option>
+        <option value="">{t('filter_allTypes')}</option>
+        {TYPE_KEYS.map((key) => (
+          <option key={key} value={key}>{t('type_' + key)}</option>
         ))}
       </select>
 
@@ -44,9 +49,9 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
         className={inputClass}
         value={filters.condition ?? ''}
         onChange={(e) => onChange({ ...filters, condition: e.target.value || undefined })}
-        aria-label="Filtra per condizione"
+        aria-label={t('filter_byCondition')}
       >
-        <option value="">Tutte le condizioni</option>
+        <option value="">{t('filter_allConditions')}</option>
         {Object.entries(CONDITION_LABELS).map(([key, label]) => (
           <option key={key} value={key}>{label}</option>
         ))}
@@ -56,10 +61,10 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
       <input
         type="text"
         className={inputClass}
-        placeholder="Cerca per nome o set…"
+        placeholder={t('filter_search')}
         value={filters.search ?? ''}
         onChange={(e) => onChange({ ...filters, search: e.target.value || undefined })}
-        aria-label="Cerca articolo"
+        aria-label={t('filter_searchAria')}
       />
     </div>
   )

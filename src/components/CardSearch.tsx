@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { formatEUR } from '@/lib/format'
+import { useT } from '@/lib/i18n'
 
 export type CardSearchResult = {
   externalId: string
@@ -17,6 +18,7 @@ interface CardSearchProps {
 }
 
 export function CardSearch({ onPick }: CardSearchProps) {
+  const t = useT()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<CardSearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -46,21 +48,21 @@ export function CardSearch({ onPick }: CardSearchProps) {
     <div className="space-y-2">
       <input
         type="text"
-        placeholder="Cerca carta Pokémon..."
+        placeholder={t('m_searchPlaceholder')}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full rounded border border-border bg-card px-3 py-2 text-sm text-fg placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
       {loading && (
-        <p className="text-xs text-gray-500">Ricerca in corso...</p>
+        <p className="text-xs text-muted">Ricerca in corso...</p>
       )}
       {!loading && results.length > 0 && (
-        <ul className="max-h-48 overflow-y-auto rounded border border-gray-200 bg-white shadow-sm divide-y divide-gray-100">
+        <ul className="max-h-48 overflow-y-auto rounded-xl border border-border bg-card shadow-sm divide-y divide-border">
           {results.map((r) => (
             <li key={r.externalId}>
               <button
                 type="button"
-                className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-blue-50 transition-colors"
+                className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-primary-soft transition-colors"
                 onClick={() => {
                   onPick(r)
                   setQuery('')
@@ -69,11 +71,11 @@ export function CardSearch({ onPick }: CardSearchProps) {
               >
                 {r.imageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={r.imageUrl} alt={r.name} className="h-10 w-7 object-contain rounded shrink-0" />
+                  <img src={r.imageUrl} alt={r.name} className="h-16 w-12 object-contain rounded shrink-0" />
                 )}
                 <span className="min-w-0">
-                  <span className="block font-medium text-gray-900 truncate">{r.name}</span>
-                  <span className="block text-xs text-gray-500 truncate">
+                  <span className="block font-medium text-fg truncate">{r.name}</span>
+                  <span className="block text-xs text-muted truncate">
                     {r.setName} {r.cardNumber ? `· #${r.cardNumber}` : ''}
                     {r.lowPrice != null ? ` · ${formatEUR(r.lowPrice)}` : ''}
                   </span>
@@ -84,7 +86,7 @@ export function CardSearch({ onPick }: CardSearchProps) {
         </ul>
       )}
       {!loading && query.trim() && results.length === 0 && (
-        <p className="text-xs text-gray-500">Nessun risultato trovato.</p>
+        <p className="text-xs text-muted">{t('m_noResults')}</p>
       )}
     </div>
   )
