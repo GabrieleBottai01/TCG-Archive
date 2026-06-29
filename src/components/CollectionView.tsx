@@ -37,10 +37,10 @@ interface CollectionViewProps {
 }
 
 export function CollectionView({ initialItems }: CollectionViewProps) {
-  const [items] = useState<PlainItem[]>(initialItems)
+  const [items, setItems] = useState<PlainItem[]>(initialItems)
   const [filters, setFilters] = useState<Filters>({})
 
-  const visible = filterItems(items, filters) as PlainItem[]
+  const visible = filterItems(items, filters)
   const totals = collectionTotals(visible)
 
   return (

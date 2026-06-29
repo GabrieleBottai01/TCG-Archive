@@ -17,7 +17,7 @@ export function collectionTotals(items: ValueItem[]): Totals {
   return { ...t, profitLoss: t.totalValue - t.totalCost, itemCount: items.length }
 }
 export type Filters = { game?: string; itemType?: string; condition?: string; setName?: string; search?: string }
-export function filterItems(items: ValueItem[], f: Filters): ValueItem[] {
+export function filterItems<T extends ValueItem>(items: T[], f: Filters): T[] {
   return items.filter((i) => {
     if (f.game && i.game !== f.game) return false
     if (f.itemType && i.itemType !== f.itemType) return false

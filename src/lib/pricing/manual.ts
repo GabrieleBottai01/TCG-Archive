@@ -1,5 +1,5 @@
-import type { PriceProvider, PriceInput, PriceResult } from './types'
+import type { PriceProvider, PriceResult } from './types'
 export class ManualProvider implements PriceProvider {
   supports(): boolean { return false }
-  async fetchPrice(_i: PriceInput): Promise<PriceResult | null> { return null }
+  async fetchPrice(): Promise<PriceResult | null> { return null }
 }

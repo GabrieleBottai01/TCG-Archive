@@ -2,6 +2,17 @@ export type CardSearchResult = {
   externalId: string; name: string; setName: string
   cardNumber: string; imageUrl: string | null; lowPrice: number | null
 }
+
+// Minimal shape of a pokemontcg.io card (only the fields we read).
+type ApiCard = {
+  id: string
+  name: string
+  number?: string
+  set?: { name?: string }
+  images?: { small?: string }
+  cardmarket?: { prices?: { lowPrice?: number } }
+}
+
 export async function searchPokemonCards(q: string, apiKey?: string): Promise<CardSearchResult[]> {
   const term = q.trim()
   if (!term) return []
@@ -9,7 +20,7 @@ export async function searchPokemonCards(q: string, apiKey?: string): Promise<Ca
   const res = await fetch(url, { headers: apiKey ? { 'X-Api-Key': apiKey } : {} })
   if (!res.ok) return []
   const json = await res.json()
-  const data: any[] = json?.data ?? []
+  const data: ApiCard[] = json?.data ?? []
   return data.map((c) => ({
     externalId: c.id,
     name: c.name,
