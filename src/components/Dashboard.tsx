@@ -6,7 +6,8 @@ import { collectionTotals } from '@/lib/value'
 import { formatEUR } from '@/lib/format'
 import { Money } from '@/components/Money'
 import { SummaryCard } from '@/components/SummaryCard'
-import { GAME_LABELS } from '@/lib/labels'
+import { GameBadge } from '@/components/GameBadge'
+import { useT } from '@/lib/i18n'
 import type { PlainItem } from '@/components/CollectionView'
 
 interface DashboardProps {
@@ -14,6 +15,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ items }: DashboardProps) {
+  const t = useT()
   const [loading, setLoading] = useState(false)
   const [refreshError, setRefreshError] = useState<string | null>(null)
 
@@ -35,13 +37,13 @@ export function Dashboard({ items }: DashboardProps) {
     try {
       const res = await fetch('/api/prices/refresh', { method: 'POST' })
       if (!res.ok) {
-        setRefreshError('Aggiornamento non riuscito. Riprova più tardi.')
+        setRefreshError(t('dash_refreshErr'))
         return
       }
       // Reload so the new market values (and totals) are reflected.
       location.reload()
     } catch {
-      setRefreshError('Impossibile contattare il server. Controlla la connessione.')
+      setRefreshError(t('dash_networkErr'))
     } finally {
       setLoading(false)
     }
@@ -50,15 +52,15 @@ export function Dashboard({ items }: DashboardProps) {
   if (items.length === 0) {
     return (
       <div className="py-20 text-center">
-        <h1 className="font-display text-2xl font-bold text-fg mb-4">Dashboard</h1>
+        <h1 className="font-display text-2xl font-bold text-fg mb-4">{t('dash_title')}</h1>
         <p className="text-muted mb-6">
-          La tua collezione è vuota. Inizia ad aggiungere articoli!
+          {t('dash_emptyDesc')}
         </p>
         <Link
           href="/collezione"
           className="inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-on-primary glow-violet hover:bg-primary-hover transition-colors"
         >
-          Vai alla Collezione
+          {t('dash_goToCollection')}
         </Link>
       </div>
     )
@@ -66,23 +68,24 @@ export function Dashboard({ items }: DashboardProps) {
 
   return (
     <div className="space-y-8">
-      <h1 className="font-display text-2xl font-bold text-fg">Dashboard</h1>
+      <h1 className="font-display text-2xl font-bold text-fg">{t('dash_title')}</h1>
 
       {/* Hero — the collection value as a neon vault readout */}
       <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 sm:p-8 glow-violet">
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted">
-          Valore della collezione
+          {t('dash_collectionValue')}
         </p>
         <p className="font-display neon-text mt-2 text-4xl sm:text-5xl font-bold tabular-nums">
           {formatEUR(totals.totalValue)}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted">
           <span>
-            Costo <span className="font-semibold text-fg">{formatEUR(totals.totalCost)}</span>
+            {t('dash_cost')}{' '}
+            <span className="font-semibold text-fg">{formatEUR(totals.totalCost)}</span>
           </span>
           <span className="text-border">·</span>
           <span>
-            P/L{' '}
+            {t('dash_pl')}{' '}
             <span className="font-semibold">
               <Money value={totals.profitLoss} signed />
             </span>
@@ -92,19 +95,19 @@ export function Dashboard({ items }: DashboardProps) {
 
       {/* Secondary stats */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-        <SummaryCard label="Costo totale">{formatEUR(totals.totalCost)}</SummaryCard>
-        <SummaryCard label="P/L">
+        <SummaryCard label={t('dash_costTotal')}>{formatEUR(totals.totalCost)}</SummaryCard>
+        <SummaryCard label={t('dash_pl')}>
           <Money value={totals.profitLoss} signed />
         </SummaryCard>
-        <SummaryCard label="N. articoli">{totals.itemCount}</SummaryCard>
-        <SummaryCard label="Pezzi">{totals.pieceCount}</SummaryCard>
+        <SummaryCard label={t('dash_items')}>{totals.itemCount}</SummaryCard>
+        <SummaryCard label={t('dash_pieces')}>{totals.pieceCount}</SummaryCard>
       </div>
 
       {/* Per-game breakdown */}
       {gameGroups.length > 0 && (
         <section>
           <h2 className="text-xs font-medium uppercase tracking-wider text-muted mb-3">
-            Per gioco
+            {t('dash_perGame')}
           </h2>
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
             {gameGroups.map(([game, gameItems]) => {
@@ -115,9 +118,9 @@ export function Dashboard({ items }: DashboardProps) {
                   className="rounded-xl border border-border bg-card px-4 py-3 flex items-center justify-between transition-colors hover:border-primary/50"
                 >
                   <div>
-                    <p className="font-medium text-fg">{GAME_LABELS[game] ?? game}</p>
+                    <p className="font-medium text-fg"><GameBadge game={game} /></p>
                     <p className="text-xs text-muted mt-0.5">
-                      {gt.itemCount} {gt.itemCount === 1 ? 'articolo' : 'articoli'} · {gt.pieceCount} {gt.pieceCount === 1 ? 'pezzo' : 'pezzi'}
+                      {`${gt.itemCount} ${t(gt.itemCount === 1 ? 'unit_article' : 'unit_articles')} · ${gt.pieceCount} ${t(gt.pieceCount === 1 ? 'unit_piece' : 'unit_pieces')}`}
                     </p>
                   </div>
                   <div className="text-right">
@@ -139,9 +142,9 @@ export function Dashboard({ items }: DashboardProps) {
       <section className="rounded-xl border border-border bg-surface p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="font-medium text-fg">Aggiorna valori di mercato</p>
+            <p className="font-medium text-fg">{t('dash_updateTitle')}</p>
             <p className="text-sm text-muted mt-0.5">
-              Aggiorna i valori di mercato delle carte Pokémon (fonte automatica).
+              {t('dash_updateDesc')}
             </p>
           </div>
           <button
@@ -150,7 +153,7 @@ export function Dashboard({ items }: DashboardProps) {
             disabled={loading}
             className="shrink-0 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {loading ? 'Aggiornamento…' : 'Aggiorna valori'}
+            {loading ? t('dash_updating') : t('dash_updateBtn')}
           </button>
         </div>
         {refreshError && (

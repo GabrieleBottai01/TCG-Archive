@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { formatEUR } from '@/lib/format'
+import { useT } from '@/lib/i18n'
 
 export type CardSearchResult = {
   externalId: string
@@ -17,6 +18,7 @@ interface CardSearchProps {
 }
 
 export function CardSearch({ onPick }: CardSearchProps) {
+  const t = useT()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<CardSearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -46,7 +48,7 @@ export function CardSearch({ onPick }: CardSearchProps) {
     <div className="space-y-2">
       <input
         type="text"
-        placeholder="Cerca carta Pokémon..."
+        placeholder={t('m_searchPlaceholder')}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         className="w-full rounded border border-border bg-card px-3 py-2 text-sm text-fg placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -69,7 +71,7 @@ export function CardSearch({ onPick }: CardSearchProps) {
               >
                 {r.imageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={r.imageUrl} alt={r.name} className="h-10 w-7 object-contain rounded shrink-0" />
+                  <img src={r.imageUrl} alt={r.name} className="h-16 w-12 object-contain rounded shrink-0" />
                 )}
                 <span className="min-w-0">
                   <span className="block font-medium text-fg truncate">{r.name}</span>
@@ -84,7 +86,7 @@ export function CardSearch({ onPick }: CardSearchProps) {
         </ul>
       )}
       {!loading && query.trim() && results.length === 0 && (
-        <p className="text-xs text-muted">Nessun risultato trovato.</p>
+        <p className="text-xs text-muted">{t('m_noResults')}</p>
       )}
     </div>
   )

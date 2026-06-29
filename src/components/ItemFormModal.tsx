@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { CardSearch, type CardSearchResult } from '@/components/CardSearch'
-import { GAME_LABELS, ITEM_TYPE_LABELS, CONDITION_LABELS } from '@/lib/labels'
+import { useT, CONDITION_LABELS } from '@/lib/i18n'
+import { GAME_LABELS, ITEM_TYPE_LABELS } from '@/lib/labels'
+import { ItemImage } from '@/components/ItemImage'
 import type { PlainItem } from '@/components/CollectionView'
 
 interface ItemFormModalProps {
@@ -76,6 +78,7 @@ type ApiItemResponse = { item: PlainItem }
 const fieldClass = 'w-full rounded border border-border bg-card px-3 py-2 text-sm text-fg placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
+  const t = useT()
   const [form, setForm] = useState<FormState>(() => seedForm(item))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -144,8 +147,8 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       condition: form.itemType === 'RAW' ? (form.condition || null) : null,
       // Bug 2: Pokémon-raw-specific fields — null for all other game/type combos
       externalId: isPokemonRawSubmit ? (form.externalId.trim() || null) : null,
-      // Bug 1 + Bug 2: imageUrl must be a real URL or null (never ''); only for Pokémon RAW
-      imageUrl: isPokemonRawSubmit ? (form.imageUrl.trim() || null) : null,
+      // imageUrl is sent for ALL types — real URL or null (never '')
+      imageUrl: form.imageUrl.trim() || null,
     }
 
     const url = item ? `/api/items/${item.id}` : '/api/items'
@@ -159,14 +162,14 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       })
       if (!res.ok) {
         const errData = (await res.json()) as { error?: string | object }
-        const msg = typeof errData.error === 'string' ? errData.error : 'Dati non validi. Controlla i campi.'
+        const msg = typeof errData.error === 'string' ? errData.error : t('m_validationErr')
         setError(msg)
         return
       }
       const data = (await res.json()) as ApiItemResponse
       onSaved(data.item)
     } catch {
-      setError('Errore di rete. Riprova.')
+      setError(t('m_networkErr'))
     } finally {
       setSubmitting(false)
     }
@@ -189,7 +192,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
         className="max-w-lg w-full rounded-xl bg-card p-4 max-h-[90vh] overflow-y-auto shadow-xl"
       >
         <h2 id="modal-title" className="text-lg font-semibold text-fg mb-4">
-          {item ? 'Modifica articolo' : 'Nuovo articolo'}
+          {item ? t('m_edit') : t('m_new')}
         </h2>
 
         {error && (
@@ -202,7 +205,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           {/* Gioco */}
           <div>
             <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-game">
-              Gioco
+              {t('m_game')}
             </label>
             <select
               id="modal-game"
@@ -210,8 +213,8 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               onChange={(e) => set('game', e.target.value)}
               className={fieldClass}
             >
-              {Object.entries(GAME_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+              {Object.keys(GAME_LABELS).map((k) => (
+                <option key={k} value={k}>{t('game_' + k)}</option>
               ))}
             </select>
           </div>
@@ -219,7 +222,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           {/* Tipo */}
           <div>
             <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-type">
-              Tipo
+              {t('m_type')}
             </label>
             <select
               id="modal-type"
@@ -227,8 +230,8 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               onChange={(e) => set('itemType', e.target.value)}
               className={fieldClass}
             >
-              {Object.entries(ITEM_TYPE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+              {Object.keys(ITEM_TYPE_LABELS).map((k) => (
+                <option key={k} value={k}>{t('type_' + k)}</option>
               ))}
             </select>
           </div>
@@ -236,31 +239,42 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           {/* Pokémon card search (only for POKEMON + RAW) */}
           {isPokemonRaw && (
             <div>
-              <p className="text-sm font-medium text-fg mb-1">Cerca carta</p>
+              <p className="text-sm font-medium text-fg mb-1">{t('m_searchCard')}</p>
               <CardSearch onPick={handlePick} />
             </div>
           )}
 
-          {/* Nome */}
-          <div>
-            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-name">
-              Nome
-            </label>
-            <input
-              id="modal-name"
-              type="text"
-              value={form.name}
-              onChange={(e) => set('name', e.target.value)}
-              required
-              className={fieldClass}
+          {/* Nome + live image preview */}
+          <div className="flex gap-3 items-start">
+            <ItemImage
+              item={{
+                imageUrl: form.imageUrl.trim() || null,
+                itemType: form.itemType,
+                game: form.game,
+                name: form.name,
+              }}
+              className="aspect-[5/7] w-24 rounded-lg border border-border shrink-0"
             />
+            <div className="flex-1 min-w-0">
+              <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-name">
+                {t('m_name')}
+              </label>
+              <input
+                id="modal-name"
+                type="text"
+                value={form.name}
+                onChange={(e) => set('name', e.target.value)}
+                required
+                className={fieldClass}
+              />
+            </div>
           </div>
 
           {/* Set / numero carta */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-setname">
-                Set
+                {t('m_set')}
               </label>
               <input
                 id="modal-setname"
@@ -272,7 +286,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
             </div>
             <div>
               <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-cardnumber">
-                Numero carta
+                {t('m_cardNumber')}
               </label>
               <input
                 id="modal-cardnumber"
@@ -287,14 +301,14 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           {/* Lingua */}
           <div>
             <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-language">
-              Lingua
+              {t('m_language')}
             </label>
             <input
               id="modal-language"
               type="text"
               value={form.language}
               onChange={(e) => set('language', e.target.value)}
-              placeholder="es. IT, EN, JP"
+              placeholder={t('m_languagePlaceholder')}
               className={fieldClass}
             />
           </div>
@@ -303,7 +317,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           {isRaw && (
             <div>
               <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-condition">
-                Condizione
+                {t('m_condition')}
               </label>
               <select
                 id="modal-condition"
@@ -311,7 +325,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
                 onChange={(e) => set('condition', e.target.value)}
                 className={fieldClass}
               >
-                <option value="">— seleziona —</option>
+                <option value="">{t('m_select')}</option>
                 {Object.entries(CONDITION_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
                 ))}
@@ -324,7 +338,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-grading-company">
-                  Grading company
+                  {t('m_gradingCompany')}
                 </label>
                 <select
                   id="modal-grading-company"
@@ -332,7 +346,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
                   onChange={(e) => set('gradingCompany', e.target.value)}
                   className={fieldClass}
                 >
-                  <option value="">— seleziona —</option>
+                  <option value="">{t('m_select')}</option>
                   <option value="PSA">PSA</option>
                   <option value="BGS">BGS</option>
                   <option value="CGC">CGC</option>
@@ -340,7 +354,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-grade">
-                  Grado
+                  {t('m_grade')}
                 </label>
                 <input
                   id="modal-grade"
@@ -357,7 +371,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           {/* Quantità */}
           <div>
             <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-quantity">
-              Quantità
+              {t('m_quantity')}
             </label>
             <input
               id="modal-quantity"
@@ -373,7 +387,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           {/* Prezzo di acquisto */}
           <div>
             <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-purchase-price">
-              Prezzo di acquisto
+              {t('m_purchasePrice')}
             </label>
             <input
               id="modal-purchase-price"
@@ -389,7 +403,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           {/* Valore di mercato */}
           <div>
             <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-market-value">
-              Valore di mercato
+              {t('m_marketValue')}
             </label>
             <input
               id="modal-market-value"
@@ -404,14 +418,30 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               className={fieldClass}
             />
             {form.marketValueSource === 'AUTO' && (
-              <p className="mt-1 text-xs text-success">Valore aggiornato automaticamente da Pokémon TCG</p>
+              <p className="mt-1 text-xs text-success">{t('m_autoUpdated')}</p>
             )}
+          </div>
+
+          {/* URL immagine (all item types) */}
+          <div>
+            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-image-url">
+              {t('m_imageUrl')}
+            </label>
+            <input
+              id="modal-image-url"
+              type="text"
+              value={form.imageUrl}
+              onChange={(e) => set('imageUrl', e.target.value)}
+              placeholder={t('m_imageUrlPlaceholder')}
+              className={fieldClass}
+            />
+            <p className="mt-1 text-xs text-muted">{t('m_imageUrlHint')}</p>
           </div>
 
           {/* Note */}
           <div>
             <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-notes">
-              Note
+              {t('m_notes')}
             </label>
             <textarea
               id="modal-notes"
@@ -430,14 +460,14 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               disabled={submitting}
               className="rounded border border-border px-4 py-2 text-sm font-medium text-fg hover:bg-surface transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              Annulla
+              {t('m_cancel')}
             </button>
             <button
               type="submit"
               disabled={submitting}
               className="rounded bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary-hover transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring glow-violet"
             >
-              {submitting ? 'Salvataggio...' : 'Salva'}
+              {submitting ? `${t('m_save')}…` : t('m_save')}
             </button>
           </div>
         </form>
