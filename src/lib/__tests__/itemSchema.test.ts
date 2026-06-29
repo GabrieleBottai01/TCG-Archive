@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { it, expect } from 'vitest'
 import { itemInputSchema } from '@/lib/itemSchema'
 
 it('accepts a minimal valid item', () => {
