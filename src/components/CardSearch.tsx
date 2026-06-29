@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { formatEUR } from '@/lib/format'
 
 export type CardSearchResult = {
   externalId: string
@@ -74,7 +75,7 @@ export function CardSearch({ onPick }: CardSearchProps) {
                   <span className="block font-medium text-gray-900 truncate">{r.name}</span>
                   <span className="block text-xs text-gray-500 truncate">
                     {r.setName} {r.cardNumber ? `· #${r.cardNumber}` : ''}
-                    {r.lowPrice != null ? ` · €${r.lowPrice.toFixed(2)}` : ''}
+                    {r.lowPrice != null ? ` · ${formatEUR(r.lowPrice)}` : ''}
                   </span>
                 </span>
               </button>
