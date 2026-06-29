@@ -1,0 +1,13 @@
+# Netlify configuration for TCG Archive (Next.js + Prisma + Neon Postgres)
+
+[build]
+  # Sync the schema to Neon and ensure the default user exists, then build.
+  # (prisma generate runs automatically via the package.json postinstall hook.)
+  command = "npx prisma db push && npx prisma db seed && npx next build"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Official Next.js runtime: turns SSR pages and API routes into Netlify Functions.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
