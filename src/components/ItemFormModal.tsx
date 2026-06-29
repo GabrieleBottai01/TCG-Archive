@@ -115,8 +115,11 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
         cardNumber: r.cardNumber,
         imageUrl: r.imageUrl ?? '',
         externalId: r.externalId,
-        // Auto market price only for raw cards; a graded slab keeps its manual value.
-        ...(raw ? { marketValue: r.lowPrice ?? 0, marketValueSource: 'AUTO' } : {}),
+        // Auto-fill the market value on selection (Cardmarket card price).
+        marketValue: r.lowPrice ?? prev.marketValue,
+        // Raw cards stay AUTO (refreshable); a graded slab keeps the value as MANUAL
+        // since its real value diverges from the raw card price.
+        marketValueSource: raw ? 'AUTO' : 'MANUAL',
       }
     })
   }
