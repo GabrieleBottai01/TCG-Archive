@@ -71,10 +71,10 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
     <div className="space-y-4">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Collezione</h1>
+        <h1 className="text-2xl font-semibold text-fg">Collezione</h1>
         <button
           type="button"
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+          className="rounded bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring glow-violet"
           onClick={() => { setEditing(null); setShowModal(true) }}
         >
           Aggiungi
@@ -85,32 +85,32 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
       <FilterBar filters={filters} onChange={setFilters} />
 
       {/* Totals bar */}
-      <div className="flex flex-wrap gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+      <div className="flex flex-wrap gap-4 rounded-lg border border-border bg-surface px-4 py-3 text-sm">
         <div>
-          <span className="text-gray-500">Valore</span>{' '}
-          <span className="font-semibold text-gray-900">{formatEUR(totals.totalValue)}</span>
+          <span className="text-muted">Valore</span>{' '}
+          <span className="font-semibold text-fg">{formatEUR(totals.totalValue)}</span>
         </div>
         <div>
-          <span className="text-gray-500">Costo</span>{' '}
-          <span className="font-semibold text-gray-900">{formatEUR(totals.totalCost)}</span>
+          <span className="text-muted">Costo</span>{' '}
+          <span className="font-semibold text-fg">{formatEUR(totals.totalCost)}</span>
         </div>
         <div>
-          <span className="text-gray-500">P/L</span>{' '}
+          <span className="text-muted">P/L</span>{' '}
           <span className="font-semibold"><Money value={totals.profitLoss} signed /></span>
         </div>
         <div>
-          <span className="text-gray-500">Pezzi</span>{' '}
-          <span className="font-semibold text-gray-900">{totals.pieceCount}</span>
+          <span className="text-muted">Pezzi</span>{' '}
+          <span className="font-semibold text-fg">{totals.pieceCount}</span>
         </div>
         <div>
-          <span className="text-gray-500">N. articoli</span>{' '}
-          <span className="font-semibold text-gray-900">{totals.itemCount}</span>
+          <span className="text-muted">N. articoli</span>{' '}
+          <span className="font-semibold text-fg">{totals.itemCount}</span>
         </div>
       </div>
 
       {/* Empty state */}
       {visible.length === 0 && (
-        <p className="py-12 text-center text-gray-500">
+        <p className="py-12 text-center text-muted">
           Nessun articolo in collezione. Aggiungine uno!
         </p>
       )}
@@ -120,7 +120,7 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="border-b border-gray-200 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted">
                 <th className="py-2 pr-4">Articolo</th>
                 <th className="py-2 pr-4">Gioco</th>
                 <th className="py-2 pr-4">Tipo</th>
@@ -134,39 +134,39 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
             </thead>
             <tbody>
               {visible.map((item) => (
-                <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                <tr key={item.id} className="border-b border-border hover:bg-primary-soft transition-colors">
                   <td className="py-2 pr-4">
-                    <span className="font-medium text-gray-900">{item.name}</span>
+                    <span className="font-medium text-fg">{item.name}</span>
                     {item.setName && (
-                      <span className="block text-xs text-gray-400">{item.setName}</span>
+                      <span className="block text-xs text-muted">{item.setName}</span>
                     )}
                   </td>
-                  <td className="py-2 pr-4 text-gray-600">
+                  <td className="py-2 pr-4 text-muted">
                     {GAME_LABELS[item.game] ?? item.game}
                   </td>
-                  <td className="py-2 pr-4 text-gray-600">
+                  <td className="py-2 pr-4 text-muted">
                     {ITEM_TYPE_LABELS[item.itemType] ?? item.itemType}
                   </td>
-                  <td className="py-2 pr-4 text-gray-600">
+                  <td className="py-2 pr-4 text-muted">
                     {item.condition ? (CONDITION_LABELS[item.condition] ?? item.condition) : '—'}
                   </td>
-                  <td className="py-2 pr-4 text-right text-gray-700">{item.quantity}</td>
-                  <td className="py-2 pr-4 text-right text-gray-700">{formatEUR(item.purchasePrice)}</td>
-                  <td className="py-2 pr-4 text-right text-gray-700">{formatEUR(item.marketValue)}</td>
+                  <td className="py-2 pr-4 text-right text-fg">{item.quantity}</td>
+                  <td className="py-2 pr-4 text-right text-fg">{formatEUR(item.purchasePrice)}</td>
+                  <td className="py-2 pr-4 text-right text-fg">{formatEUR(item.marketValue)}</td>
                   <td className="py-2 pr-4 text-right">
                     <Money value={itemDifference(item)} signed />
                   </td>
                   <td className="py-2 text-right whitespace-nowrap">
                     <button
                       type="button"
-                      className="text-xs text-blue-600 hover:underline mr-2"
+                      className="text-xs text-primary hover:underline mr-2"
                       onClick={() => { setEditing(item); setShowModal(true) }}
                     >
                       Modifica
                     </button>
                     <button
                       type="button"
-                      className="text-xs text-red-500 hover:underline"
+                      className="text-xs text-danger hover:underline"
                       onClick={() => handleDelete(item.id)}
                     >
                       Elimina
@@ -183,20 +183,20 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
       {visible.length > 0 && (
         <ul className="md:hidden space-y-3">
           {visible.map((item) => (
-            <li key={item.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <li key={item.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-medium text-gray-900">{item.name}</p>
+                  <p className="font-medium text-fg">{item.name}</p>
                   {item.setName && (
-                    <p className="text-xs text-gray-400">{item.setName}</p>
+                    <p className="text-xs text-muted">{item.setName}</p>
                   )}
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-semibold text-gray-900">{formatEUR(item.marketValue)}</p>
+                  <p className="text-sm font-semibold text-fg">{formatEUR(item.marketValue)}</p>
                   <Money value={itemDifference(item)} signed />
                 </div>
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                 <span>{GAME_LABELS[item.game] ?? item.game}</span>
                 <span>{ITEM_TYPE_LABELS[item.itemType] ?? item.itemType}</span>
                 {item.condition && <span>{CONDITION_LABELS[item.condition] ?? item.condition}</span>}
@@ -206,14 +206,14 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
               <div className="mt-3 flex gap-3">
                 <button
                   type="button"
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-primary hover:underline"
                   onClick={() => { setEditing(item); setShowModal(true) }}
                 >
                   Modifica
                 </button>
                 <button
                   type="button"
-                  className="text-xs text-red-500 hover:underline"
+                  className="text-xs text-danger hover:underline"
                   onClick={() => handleDelete(item.id)}
                 >
                   Elimina

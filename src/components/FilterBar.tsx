@@ -9,7 +9,7 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ filters, onChange }: FilterBarProps) {
-  const inputClass = 'rounded border border-gray-300 px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500'
+  const inputClass = 'rounded border border-border bg-card px-2 py-1 text-sm text-fg placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
   return (
     <div className="flex flex-wrap gap-2 items-center">

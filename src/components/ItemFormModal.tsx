@@ -73,6 +73,8 @@ function seedForm(item?: PlainItem): FormState {
 
 type ApiItemResponse = { item: PlainItem }
 
+const fieldClass = 'w-full rounded border border-border bg-card px-3 py-2 text-sm text-fg placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
 export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
   const [form, setForm] = useState<FormState>(() => seedForm(item))
   const [submitting, setSubmitting] = useState(false)
@@ -184,14 +186,14 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="max-w-lg w-full rounded-lg bg-white p-4 max-h-[90vh] overflow-y-auto shadow-xl"
+        className="max-w-lg w-full rounded-xl bg-card p-4 max-h-[90vh] overflow-y-auto shadow-xl"
       >
-        <h2 id="modal-title" className="text-lg font-semibold text-gray-900 mb-4">
+        <h2 id="modal-title" className="text-lg font-semibold text-fg mb-4">
           {item ? 'Modifica articolo' : 'Nuovo articolo'}
         </h2>
 
         {error && (
-          <div className="mb-4 rounded bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+          <div className="mb-4 rounded bg-danger/10 border border-danger/40 px-3 py-2 text-sm text-danger">
             {error}
           </div>
         )}
@@ -199,14 +201,14 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Gioco */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-game">
+            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-game">
               Gioco
             </label>
             <select
               id="modal-game"
               value={form.game}
               onChange={(e) => set('game', e.target.value)}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={fieldClass}
             >
               {Object.entries(GAME_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
@@ -216,14 +218,14 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
 
           {/* Tipo */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-type">
+            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-type">
               Tipo
             </label>
             <select
               id="modal-type"
               value={form.itemType}
               onChange={(e) => set('itemType', e.target.value)}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={fieldClass}
             >
               {Object.entries(ITEM_TYPE_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
@@ -234,14 +236,14 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           {/* Pokémon card search (only for POKEMON + RAW) */}
           {isPokemonRaw && (
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-1">Cerca carta</p>
+              <p className="text-sm font-medium text-fg mb-1">Cerca carta</p>
               <CardSearch onPick={handlePick} />
             </div>
           )}
 
           {/* Nome */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-name">
+            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-name">
               Nome
             </label>
             <input
@@ -250,14 +252,14 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               required
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={fieldClass}
             />
           </div>
 
           {/* Set / numero carta */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-setname">
+              <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-setname">
                 Set
               </label>
               <input
@@ -265,11 +267,11 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
                 type="text"
                 value={form.setName}
                 onChange={(e) => set('setName', e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={fieldClass}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-cardnumber">
+              <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-cardnumber">
                 Numero carta
               </label>
               <input
@@ -277,14 +279,14 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
                 type="text"
                 value={form.cardNumber}
                 onChange={(e) => set('cardNumber', e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={fieldClass}
               />
             </div>
           </div>
 
           {/* Lingua */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-language">
+            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-language">
               Lingua
             </label>
             <input
@@ -293,21 +295,21 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               value={form.language}
               onChange={(e) => set('language', e.target.value)}
               placeholder="es. IT, EN, JP"
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={fieldClass}
             />
           </div>
 
           {/* Condizione (only for RAW) */}
           {isRaw && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-condition">
+              <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-condition">
                 Condizione
               </label>
               <select
                 id="modal-condition"
                 value={form.condition}
                 onChange={(e) => set('condition', e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={fieldClass}
               >
                 <option value="">— seleziona —</option>
                 {Object.entries(CONDITION_LABELS).map(([k, v]) => (
@@ -321,14 +323,14 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           {isGraded && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-grading-company">
+                <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-grading-company">
                   Grading company
                 </label>
                 <select
                   id="modal-grading-company"
                   value={form.gradingCompany}
                   onChange={(e) => set('gradingCompany', e.target.value)}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={fieldClass}
                 >
                   <option value="">— seleziona —</option>
                   <option value="PSA">PSA</option>
@@ -337,7 +339,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-grade">
+                <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-grade">
                   Grado
                 </label>
                 <input
@@ -346,7 +348,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
                   value={form.grade}
                   onChange={(e) => set('grade', e.target.value)}
                   placeholder="es. 9, 10, 9.5"
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={fieldClass}
                 />
               </div>
             </div>
@@ -354,7 +356,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
 
           {/* Quantità */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-quantity">
+            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-quantity">
               Quantità
             </label>
             <input
@@ -364,13 +366,13 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               step={1}
               value={form.quantity}
               onChange={(e) => set('quantity', parseInt(e.target.value, 10) || 1)}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={fieldClass}
             />
           </div>
 
           {/* Prezzo di acquisto */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-purchase-price">
+            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-purchase-price">
               Prezzo di acquisto
             </label>
             <input
@@ -380,13 +382,13 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               step={0.01}
               value={form.purchasePrice}
               onChange={(e) => set('purchasePrice', parseFloat(e.target.value) || 0)}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={fieldClass}
             />
           </div>
 
           {/* Valore di mercato */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-market-value">
+            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-market-value">
               Valore di mercato
             </label>
             <input
@@ -399,7 +401,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
                 set('marketValue', parseFloat(e.target.value) || 0)
                 set('marketValueSource', 'MANUAL')
               }}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={fieldClass}
             />
             {form.marketValueSource === 'AUTO' && (
               <p className="mt-1 text-xs text-green-600">Valore aggiornato automaticamente da Pokémon TCG</p>
@@ -408,7 +410,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
 
           {/* Note */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="modal-notes">
+            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-notes">
               Note
             </label>
             <textarea
@@ -416,7 +418,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               value={form.notes}
               onChange={(e) => set('notes', e.target.value)}
               rows={3}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className={`${fieldClass} resize-none`}
             />
           </div>
 
@@ -426,14 +428,14 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="rounded border border-border px-4 py-2 text-sm font-medium text-fg hover:bg-surface transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Annulla
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="rounded bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary-hover transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring glow-violet"
             >
               {submitting ? 'Salvataggio...' : 'Salva'}
             </button>
