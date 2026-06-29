@@ -9,6 +9,7 @@ import { useT, CONDITION_LABELS } from '@/lib/i18n'
 import { ItemFormModal } from '@/components/ItemFormModal'
 import { ItemImage } from '@/components/ItemImage'
 import { GameBadge } from '@/components/GameBadge'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 // Mirrors the Prisma Item shape (plain object, serialized from server)
 export type PlainItem = {
@@ -57,6 +58,7 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
   const [filters, setFilters] = useState<Filters>({})
   const [editing, setEditing] = useState<PlainItem | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
 
   const handleSaved = (saved: PlainItem) => {
     setItems((prev) => {
@@ -72,11 +74,11 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('coll_confirmDelete'))) return
     const res = await fetch(`/api/items/${id}`, { method: 'DELETE' })
     if (res.ok) {
       setItems((prev) => prev.filter((i) => i.id !== id))
     }
+    setPendingDelete(null)
   }
 
   const visible = filterItems(items, filters)
@@ -183,7 +185,7 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
                   <button
                     type="button"
                     className="text-xs text-danger hover:underline"
-                    onClick={() => handleDelete(item.id)}
+                    onClick={() => setPendingDelete(item.id)}
                   >
                     {t('coll_delete')}
                   </button>
@@ -251,7 +253,7 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
                     <button
                       type="button"
                       className="text-xs text-danger hover:underline"
-                      onClick={() => handleDelete(item.id)}
+                      onClick={() => setPendingDelete(item.id)}
                     >
                       {t('coll_delete')}
                     </button>
@@ -268,6 +270,18 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
           item={editing ?? undefined}
           onClose={() => setShowModal(false)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={t('coll_deleteTitle')}
+          message={t('coll_confirmDelete')}
+          confirmLabel={t('coll_delete')}
+          cancelLabel={t('m_cancel')}
+          danger
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => handleDelete(pendingDelete)}
         />
       )}
     </div>
