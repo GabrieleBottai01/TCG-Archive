@@ -18,4 +18,9 @@ test('add a manual sealed item appears in collection', async ({ page }) => {
 
   // The new item should be visible in the collection list (appears in both table and mobile list)
   await expect(page.getByText('Booster Box Test E2E').first()).toBeVisible()
+
+  // Totals must reflect the new item: its €100,00 market value renders (row + totals bar),
+  // and the empty-state message must be gone.
+  await expect(page.getByText('€ 100,00').first()).toBeVisible()
+  await expect(page.getByText('Nessun articolo in collezione. Aggiungine uno!')).toHaveCount(0)
 })
