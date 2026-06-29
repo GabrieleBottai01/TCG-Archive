@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { CardSearch, type CardSearchResult } from '@/components/CardSearch'
-import { SetSearch, type SetSearchResult } from '@/components/SetSearch'
+import { SealedSearch, type SealedSearchResult } from '@/components/SealedSearch'
 import { useT, CONDITION_LABELS } from '@/lib/i18n'
 import { GAME_LABELS, ITEM_TYPE_LABELS } from '@/lib/labels'
 import { ItemImage } from '@/components/ItemImage'
@@ -124,12 +124,15 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     })
   }
 
-  const handlePickSet = (r: SetSearchResult) => {
+  const handlePickSealed = (r: SealedSearchResult) => {
     setForm((prev) => ({
       ...prev,
       name: r.name,
-      setName: r.name,
       imageUrl: r.imageUrl ?? '',
+      externalId: r.externalId,
+      // Auto-fill the value (TCGplayer estimate, EUR) and keep it auto-refreshable.
+      marketValue: r.priceEur ?? prev.marketValue,
+      marketValueSource: 'AUTO',
     }))
   }
 
@@ -138,8 +141,12 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     setError(null)
     setSubmitting(true)
 
-    // Determine context for payload normalization (Bug 2)
-    const isPokemonRawSubmit = form.game === 'POKEMON' && form.itemType === 'RAW'
+    // Auto-priced items: Pokémon raw cards (pokemontcg.io) and sealed products
+    // picked from search (tcgcsv). They keep their externalId + AUTO source so the
+    // refresh can re-price them; everything else is MANUAL.
+    const autoEligible =
+      (form.game === 'POKEMON' && form.itemType === 'RAW') ||
+      (form.itemType === 'SEALED' && form.externalId.startsWith('tcgcsv:'))
 
     // Build payload with explicit nulls for cleared optional fields (Bug 1)
     // and type-specific field normalization (Bug 2)
@@ -150,8 +157,8 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       quantity: Number(form.quantity),
       purchasePrice: Number(form.purchasePrice),
       marketValue: Number(form.marketValue),
-      // Bug 2: force MANUAL when not a Pokémon RAW item
-      marketValueSource: isPokemonRawSubmit ? form.marketValueSource : 'MANUAL',
+      // MANUAL unless the item is auto-priced (raw card or sealed product)
+      marketValueSource: autoEligible ? form.marketValueSource : 'MANUAL',
       // Bug 1: send null when empty so PUT clears the column
       setName: form.setName.trim() || null,
       cardNumber: form.cardNumber.trim() || null,
@@ -162,8 +169,8 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       grade: form.itemType === 'GRADED' ? (form.grade.trim() || null) : null,
       // Bug 2: condition — null unless itemType === 'RAW'
       condition: form.itemType === 'RAW' ? (form.condition || null) : null,
-      // Bug 2: Pokémon-raw-specific fields — null for all other game/type combos
-      externalId: isPokemonRawSubmit ? (form.externalId.trim() || null) : null,
+      // Keep the externalId only for auto-priced items (raw card / sealed product)
+      externalId: autoEligible ? (form.externalId.trim() || null) : null,
       // imageUrl is sent for ALL types — real URL or null (never '')
       imageUrl: form.imageUrl.trim() || null,
     }
@@ -231,7 +238,15 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
             <select
               id="modal-game"
               value={form.game}
-              onChange={(e) => set('game', e.target.value)}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  game: e.target.value,
+                  externalId: '',
+                  imageUrl: '',
+                  marketValueSource: 'MANUAL',
+                }))
+              }
               className={fieldClass}
             >
               {Object.keys(GAME_LABELS).map((k) => (
@@ -248,7 +263,15 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
             <select
               id="modal-type"
               value={form.itemType}
-              onChange={(e) => set('itemType', e.target.value)}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  itemType: e.target.value,
+                  externalId: '',
+                  imageUrl: '',
+                  marketValueSource: 'MANUAL',
+                }))
+              }
               className={fieldClass}
             >
               {Object.keys(ITEM_TYPE_LABELS).map((k) => (
@@ -265,11 +288,11 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
             </div>
           )}
 
-          {/* Pokémon set search — sealed products get the official set logo */}
+          {/* Sealed product search (IT/EN) with auto price */}
           {isPokemonSealed && (
             <div>
               <p className="text-sm font-medium text-fg mb-1">{t('m_searchSet')}</p>
-              <SetSearch onPick={handlePickSet} />
+              <SealedSearch onPick={handlePickSealed} />
             </div>
           )}
 
