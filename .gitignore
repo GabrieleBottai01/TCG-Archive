@@ -58,3 +58,6 @@ dist/
 
 # Playwright MCP demo artifacts
 .playwright-mcp/
+
+# Verification screenshots at repo root
+/*.png
