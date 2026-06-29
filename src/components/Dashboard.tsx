@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { collectionTotals } from '@/lib/value'
 import { formatEUR } from '@/lib/format'
@@ -31,11 +31,31 @@ export function Dashboard({ items }: DashboardProps) {
     }, {})
   ).sort(([a], [b]) => a.localeCompare(b))
 
+  // Auto-update: on load, refresh AUTO values that are stale (server-side throttled),
+  // and reload to show them. Runs at most one reload (fresh values skip the throttle).
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/prices/refresh', { method: 'POST' })
+        if (!res.ok) return
+        const data = (await res.json()) as { updated: number }
+        if (!cancelled && data.updated > 0) location.reload()
+      } catch {
+        // Silent: auto-refresh failures shouldn't disrupt the page.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Manual button forces a full refresh of every AUTO value.
   const handleRefresh = async () => {
     setLoading(true)
     setRefreshError(null)
     try {
-      const res = await fetch('/api/prices/refresh', { method: 'POST' })
+      const res = await fetch('/api/prices/refresh?force=1', { method: 'POST' })
       if (!res.ok) {
         setRefreshError(t('dash_refreshErr'))
         return
