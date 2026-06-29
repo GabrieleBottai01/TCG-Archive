@@ -49,14 +49,14 @@ export function Dashboard({ items }: DashboardProps) {
 
   if (items.length === 0) {
     return (
-      <div className="py-16 text-center">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-4">Dashboard</h1>
-        <p className="text-gray-500 mb-6">
+      <div className="py-20 text-center">
+        <h1 className="font-display text-2xl font-bold text-fg mb-4">Dashboard</h1>
+        <p className="text-muted mb-6">
           La tua collezione è vuota. Inizia ad aggiungere articoli!
         </p>
         <Link
           href="/collezione"
-          className="inline-block rounded bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+          className="inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-on-primary glow-violet hover:bg-primary-hover transition-colors"
         >
           Vai alla Collezione
         </Link>
@@ -66,12 +66,32 @@ export function Dashboard({ items }: DashboardProps) {
 
   return (
     <div className="space-y-8">
-      {/* Page heading */}
-      <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+      <h1 className="font-display text-2xl font-bold text-fg">Dashboard</h1>
 
-      {/* Summary cards */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
-        <SummaryCard label="Valore totale">{formatEUR(totals.totalValue)}</SummaryCard>
+      {/* Hero — the collection value as a neon vault readout */}
+      <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 sm:p-8 glow-violet">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted">
+          Valore della collezione
+        </p>
+        <p className="font-display neon-text mt-2 text-4xl sm:text-5xl font-bold tabular-nums">
+          {formatEUR(totals.totalValue)}
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted">
+          <span>
+            Costo <span className="font-semibold text-fg">{formatEUR(totals.totalCost)}</span>
+          </span>
+          <span className="text-border">·</span>
+          <span>
+            P/L{' '}
+            <span className="font-semibold">
+              <Money value={totals.profitLoss} signed />
+            </span>
+          </span>
+        </div>
+      </section>
+
+      {/* Secondary stats */}
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         <SummaryCard label="Costo totale">{formatEUR(totals.totalCost)}</SummaryCard>
         <SummaryCard label="P/L">
           <Money value={totals.profitLoss} signed />
@@ -83,7 +103,7 @@ export function Dashboard({ items }: DashboardProps) {
       {/* Per-game breakdown */}
       {gameGroups.length > 0 && (
         <section>
-          <h2 className="text-sm font-medium uppercase tracking-wide text-gray-500 mb-3">
+          <h2 className="text-xs font-medium uppercase tracking-wider text-muted mb-3">
             Per gioco
           </h2>
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
@@ -92,18 +112,16 @@ export function Dashboard({ items }: DashboardProps) {
               return (
                 <div
                   key={game}
-                  className="rounded-lg border border-gray-200 bg-white px-4 py-3 flex items-center justify-between"
+                  className="rounded-xl border border-border bg-card px-4 py-3 flex items-center justify-between transition-colors hover:border-primary/50"
                 >
                   <div>
-                    <p className="font-medium text-gray-900">
-                      {GAME_LABELS[game] ?? game}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="font-medium text-fg">{GAME_LABELS[game] ?? game}</p>
+                    <p className="text-xs text-muted mt-0.5">
                       {gt.itemCount} {gt.itemCount === 1 ? 'articolo' : 'articoli'} · {gt.pieceCount} {gt.pieceCount === 1 ? 'pezzo' : 'pezzi'}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900 text-sm">
+                    <p className="font-semibold text-fg text-sm tabular-nums">
                       {formatEUR(gt.totalValue)}
                     </p>
                     <p className="text-xs mt-0.5">
@@ -118,11 +136,11 @@ export function Dashboard({ items }: DashboardProps) {
       )}
 
       {/* Price refresh */}
-      <section className="rounded-lg border border-gray-200 bg-gray-50 p-5">
+      <section className="rounded-xl border border-border bg-surface p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="font-medium text-gray-900">Aggiorna valori di mercato</p>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="font-medium text-fg">Aggiorna valori di mercato</p>
+            <p className="text-sm text-muted mt-0.5">
               Aggiorna i valori di mercato delle carte Pokémon (fonte automatica).
             </p>
           </div>
@@ -130,13 +148,13 @@ export function Dashboard({ items }: DashboardProps) {
             type="button"
             onClick={handleRefresh}
             disabled={loading}
-            className="shrink-0 rounded bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="shrink-0 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {loading ? 'Aggiornamento…' : 'Aggiorna valori'}
           </button>
         </div>
         {refreshError && (
-          <p role="alert" className="mt-3 text-sm text-red-600">
+          <p role="alert" className="mt-3 text-sm text-danger">
             {refreshError}
           </p>
         )}

@@ -4,10 +4,10 @@ export function Money({ value, signed = false }: { value: number; signed?: boole
   // Break-even (0) is neutral; only true gains are green and losses red.
   const cls = signed
     ? value > 0
-      ? 'text-emerald-600'
+      ? 'text-success'
       : value < 0
-        ? 'text-red-600'
-        : 'text-gray-500'
+        ? 'text-danger'
+        : 'text-muted'
     : ''
   const text = signed && value > 0 ? `+${formatEUR(value)}` : formatEUR(value)
   return <span className={cls}>{text}</span>

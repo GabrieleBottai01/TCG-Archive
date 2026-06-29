@@ -404,7 +404,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
               className={fieldClass}
             />
             {form.marketValueSource === 'AUTO' && (
-              <p className="mt-1 text-xs text-green-600">Valore aggiornato automaticamente da Pokémon TCG</p>
+              <p className="mt-1 text-xs text-success">Valore aggiornato automaticamente da Pokémon TCG</p>
             )}
           </div>
 
