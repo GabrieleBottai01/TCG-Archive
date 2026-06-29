@@ -22,11 +22,19 @@ describe('PokemonTcgIoProvider', () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(new Response(JSON.stringify({ data: { cardmarket: null } }), { status: 200 }))
     expect(await p.fetchPrice({ game: 'POKEMON', itemType: 'RAW', externalId: 'xy1-1' })).toBeNull()
   })
+  it('returns null on non-ok response', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(new Response('', { status: 404 }))
+    expect(await p.fetchPrice({ game: 'POKEMON', itemType: 'RAW', externalId: 'xy1-1' })).toBeNull()
+  })
 })
 
 describe('pickProvider', () => {
   it('returns manual for non-Pokémon-raw', () => {
     const r = pickProvider({ game: 'MAGIC', itemType: 'SEALED', externalId: null })
     expect(r.supports({ game: 'MAGIC', itemType: 'SEALED', externalId: null })).toBe(false)
+  })
+  it('returns the Pokémon provider for Pokémon raw with externalId', () => {
+    const input = { game: 'POKEMON', itemType: 'RAW', externalId: 'xy1-1' }
+    expect(pickProvider(input).supports(input)).toBe(true)
   })
 })
