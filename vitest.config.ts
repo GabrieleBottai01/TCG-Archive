@@ -4,6 +4,6 @@ import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
   plugins: [react()],
-  test: { environment: 'jsdom', globals: true },
+  test: { environment: 'jsdom', globals: true, exclude: ['e2e/**', 'node_modules/**'] },
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
 })

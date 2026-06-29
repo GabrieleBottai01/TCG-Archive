@@ -99,7 +99,11 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     setError(null)
     setSubmitting(true)
 
-    // Build payload — only send optional string fields when non-empty
+    // Determine context for payload normalization (Bug 2)
+    const isPokemonRawSubmit = form.game === 'POKEMON' && form.itemType === 'RAW'
+
+    // Build payload with explicit nulls for cleared optional fields (Bug 1)
+    // and type-specific field normalization (Bug 2)
     const payload: Record<string, unknown> = {
       game: form.game,
       itemType: form.itemType,
@@ -107,19 +111,23 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       quantity: Number(form.quantity),
       purchasePrice: Number(form.purchasePrice),
       marketValue: Number(form.marketValue),
-      marketValueSource: form.marketValueSource,
+      // Bug 2: force MANUAL when not a Pokémon RAW item
+      marketValueSource: isPokemonRawSubmit ? form.marketValueSource : 'MANUAL',
+      // Bug 1: send null when empty so PUT clears the column
+      setName: form.setName.trim() || null,
+      cardNumber: form.cardNumber.trim() || null,
+      language: form.language.trim() || null,
+      notes: form.notes.trim() || null,
+      // Bug 2: grading fields — null unless itemType === 'GRADED'
+      gradingCompany: form.itemType === 'GRADED' ? (form.gradingCompany || null) : null,
+      grade: form.itemType === 'GRADED' ? (form.grade.trim() || null) : null,
+      // Bug 2: condition — null unless itemType === 'RAW'
+      condition: form.itemType === 'RAW' ? (form.condition || null) : null,
+      // Bug 2: Pokémon-raw-specific fields — null for all other game/type combos
+      externalId: isPokemonRawSubmit ? (form.externalId.trim() || null) : null,
+      // Bug 1 + Bug 2: imageUrl must be a real URL or null (never ''); only for Pokémon RAW
+      imageUrl: isPokemonRawSubmit ? (form.imageUrl.trim() || null) : null,
     }
-
-    if (form.setName.trim()) payload.setName = form.setName.trim()
-    if (form.cardNumber.trim()) payload.cardNumber = form.cardNumber.trim()
-    if (form.language.trim()) payload.language = form.language.trim()
-    if (form.externalId.trim()) payload.externalId = form.externalId.trim()
-    // imageUrl must be a real URL or omitted
-    if (form.imageUrl.trim()) payload.imageUrl = form.imageUrl.trim()
-    if (form.condition) payload.condition = form.condition
-    if (form.gradingCompany) payload.gradingCompany = form.gradingCompany
-    if (form.grade.trim()) payload.grade = form.grade.trim()
-    if (form.notes.trim()) payload.notes = form.notes.trim()
 
     const url = item ? `/api/items/${item.id}` : '/api/items'
     const method = item ? 'PUT' : 'POST'
