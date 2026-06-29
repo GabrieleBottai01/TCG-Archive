@@ -125,14 +125,13 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
   }
 
   const handlePickSealed = (r: SealedSearchResult) => {
+    // Only prefill name + image. There is no free, accurate Cardmarket price for
+    // sealed products (TCGplayer/US is far off from Cardmarket/EU), so the value
+    // stays manual rather than showing a wrong number.
     setForm((prev) => ({
       ...prev,
       name: r.name,
       imageUrl: r.imageUrl ?? '',
-      externalId: r.externalId,
-      // Auto-fill the value (TCGplayer estimate, EUR) and keep it auto-refreshable.
-      marketValue: r.priceEur ?? prev.marketValue,
-      marketValueSource: 'AUTO',
     }))
   }
 
