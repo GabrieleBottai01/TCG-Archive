@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { pickProvider } from '@/lib/pricing'
+import { requireUserId } from '@/lib/session'
 
-const USER_ID = 'default-user'
 // Auto-refresh only touches values older than this, so it can be called on every
 // page load without hammering the price API. The manual button forces a full refresh.
 const THROTTLE_MS = 6 * 60 * 60 * 1000
 
 export async function POST(req: NextRequest) {
+  const userId = await requireUserId()
+  if (!userId) return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
   const force = req.nextUrl.searchParams.get('force') === '1'
   const staleBefore = new Date(Date.now() - THROTTLE_MS)
 
   const items = await prisma.item.findMany({
     where: {
-      userId: USER_ID,
+      userId,
       marketValueSource: 'AUTO',
       externalId: { not: null },
       ...(force
