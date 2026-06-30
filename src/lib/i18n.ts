@@ -138,6 +138,24 @@ const it: Dict = {
   // Footer
   footer_tagline: 'Il caveau della tua collezione.',
 
+  // Auth
+  auth_login: 'Accedi',
+  auth_register: 'Registrati',
+  auth_logout: 'Esci',
+  auth_email: 'Email',
+  auth_password: 'Password',
+  auth_name: 'Nome',
+  auth_loginTitle: 'Accedi a TCG Archive',
+  auth_registerTitle: 'Crea il tuo account',
+  auth_googleBtn: 'Accedi con Google',
+  auth_noAccount: 'Non hai un account?',
+  auth_haveAccount: 'Hai già un account?',
+  auth_invalidCreds: 'Credenziali non valide.',
+  auth_emailTaken: 'Email già registrata.',
+  auth_genericErr: 'Qualcosa è andato storto. Riprova.',
+  auth_or: 'oppure',
+  auth_submitting: 'Attendere…',
+
   // Game labels
   game_POKEMON: 'Pokémon',
   game_MAGIC: 'Magic',
@@ -277,6 +295,24 @@ const en: Dict = {
   m_networkErr: 'Network error. Try again.',
 
   footer_tagline: 'The vault for your collection.',
+
+  // Auth
+  auth_login: 'Sign in',
+  auth_register: 'Sign up',
+  auth_logout: 'Sign out',
+  auth_email: 'Email',
+  auth_password: 'Password',
+  auth_name: 'Name',
+  auth_loginTitle: 'Sign in to TCG Archive',
+  auth_registerTitle: 'Create your account',
+  auth_googleBtn: 'Continue with Google',
+  auth_noAccount: 'No account yet?',
+  auth_haveAccount: 'Already have an account?',
+  auth_invalidCreds: 'Invalid credentials.',
+  auth_emailTaken: 'Email already registered.',
+  auth_genericErr: 'Something went wrong. Try again.',
+  auth_or: 'or',
+  auth_submitting: 'Please wait…',
 
   game_POKEMON: 'Pokémon',
   game_MAGIC: 'Magic',
