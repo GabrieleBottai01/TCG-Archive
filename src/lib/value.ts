@@ -63,3 +63,26 @@ export function sortItems<T extends ValueItem>(items: T[], sort: Sort): T[] {
     return c * dir
   })
 }
+
+export type GroupTotal = { key: string; totals: Totals }
+export function groupTotals<T extends ValueItem>(items: T[], keyFn: (i: T) => string): GroupTotal[] {
+  const map = new Map<string, T[]>()
+  for (const i of items) {
+    const k = keyFn(i)
+    const arr = map.get(k)
+    if (arr) arr.push(i)
+    else map.set(k, [i])
+  }
+  return [...map.entries()].map(([key, arr]) => ({ key, totals: collectionTotals(arr) }))
+}
+export function topByValue<T extends ValueItem>(items: T[], n: number): T[] {
+  return [...items].sort((a, b) => b.marketValue * b.quantity - a.marketValue * a.quantity).slice(0, n)
+}
+export function topByDifference<T extends ValueItem>(items: T[], n: number, dir: SortDir): T[] {
+  const s = [...items].sort((a, b) => itemDifference(b) - itemDifference(a)) // gains first
+  return (dir === 'desc' ? s : [...s].reverse()).slice(0, n)
+}
+export function averageValuePerPiece(items: ValueItem[]): number {
+  const t = collectionTotals(items)
+  return t.pieceCount > 0 ? t.totalValue / t.pieceCount : 0
+}

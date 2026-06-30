@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { itemDifference, collectionTotals, filterItems, sortItems } from '@/lib/value'
+import { itemDifference, collectionTotals, filterItems, sortItems, groupTotals, topByValue, topByDifference, averageValuePerPiece } from '@/lib/value'
 
 const A = { quantity: 2, purchasePrice: 5, marketValue: 8, game: 'POKEMON', itemType: 'RAW', condition: 'MINT', setName: 'Base', name: 'Charizard' }
 const B = { quantity: 1, purchasePrice: 20, marketValue: 15, game: 'MAGIC', itemType: 'SEALED', condition: null, setName: 'Alpha', name: 'Box' }
@@ -82,5 +82,31 @@ describe('sortItems', () => {
     const before = S.map((i) => i.name)
     expect(sortItems(S, { key: 'createdAt', dir: 'asc' }).map((i) => i.name)).toEqual(['alpha', 'Bravo', 'Charlie'])
     expect(S.map((i) => i.name)).toEqual(before)
+  })
+})
+
+const G = [
+  { quantity: 1, purchasePrice: 1, marketValue: 10, itemType: 'RAW' },   // diff +9, value 10
+  { quantity: 2, purchasePrice: 5, marketValue: 3, itemType: 'RAW' },    // diff -4, value 6
+  { quantity: 1, purchasePrice: 0, marketValue: 20, itemType: 'SEALED' },// diff +20, value 20
+]
+
+describe('stats', () => {
+  it('groupTotals groups and totals by key', () => {
+    const g = groupTotals(G, (i) => i.itemType ?? '')
+    const raw = g.find((x) => x.key === 'RAW')!
+    expect(raw.totals.totalValue).toBe(16) // 10 + 3*2
+    expect(g.find((x) => x.key === 'SEALED')!.totals.totalValue).toBe(20)
+  })
+  it('topByValue ranks by line value desc', () => {
+    expect(topByValue(G, 2).map((i) => i.marketValue)).toEqual([20, 10])
+  })
+  it('topByDifference desc=gains, asc=losses', () => {
+    expect(topByDifference(G, 1, 'desc')[0].marketValue).toBe(20) // +20 gain
+    expect(topByDifference(G, 1, 'asc')[0].marketValue).toBe(3)   // -4 loss
+  })
+  it('averageValuePerPiece divides total value by pieces', () => {
+    expect(averageValuePerPiece(G)).toBe(36 / 4) // value 36 over 4 pieces
+    expect(averageValuePerPiece([])).toBe(0)
   })
 })
