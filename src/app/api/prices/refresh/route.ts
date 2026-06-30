@@ -6,6 +6,9 @@ import { requireUserId } from '@/lib/session'
 // Auto-refresh only touches values older than this, so it can be called on every
 // page load without hammering the price API. The manual button forces a full refresh.
 const THROTTLE_MS = 6 * 60 * 60 * 1000
+// Fetch several prices at once, but bounded so we don't trip the external
+// providers' rate limits (pokemontcg.io is stricter without an API key).
+const CONCURRENCY = 5
 
 export async function POST(req: NextRequest) {
   const userId = await requireUserId()
@@ -26,7 +29,8 @@ export async function POST(req: NextRequest) {
 
   let updated = 0,
     failed = 0
-  for (const it of items) {
+
+  async function reprice(it: (typeof items)[number]) {
     try {
       const r = await pickProvider({ game: it.game, itemType: it.itemType, externalId: it.externalId })
         .fetchPrice({ game: it.game, itemType: it.itemType, externalId: it.externalId })
@@ -43,5 +47,18 @@ export async function POST(req: NextRequest) {
       failed++
     }
   }
+
+  // Worker pool: at most CONCURRENCY items are in flight at once. Each worker
+  // pulls the next item until the queue drains, so wall-clock time is bounded
+  // by the slowest lane rather than the sum of every sequential fetch.
+  let cursor = 0
+  const workers = Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
+    while (cursor < items.length) {
+      const it = items[cursor++]
+      await reprice(it)
+    }
+  })
+  await Promise.all(workers)
+
   return NextResponse.json({ updated, failed })
 }

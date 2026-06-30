@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { collectionTotals, groupTotals, topByValue, topByDifference, averageValuePerPiece, itemDifference } from '@/lib/value'
 import { formatEUR } from '@/lib/format'
@@ -16,6 +17,7 @@ interface DashboardProps {
 
 export function Dashboard({ items }: DashboardProps) {
   const t = useT()
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [refreshError, setRefreshError] = useState<string | null>(null)
 
@@ -32,7 +34,7 @@ export function Dashboard({ items }: DashboardProps) {
   ).sort(([a], [b]) => a.localeCompare(b))
 
   // Auto-update: on load, refresh AUTO values that are stale (server-side throttled),
-  // and reload to show them. Runs at most one reload (fresh values skip the throttle).
+  // then soft-refresh the server component to show them — no full document reload.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -40,7 +42,7 @@ export function Dashboard({ items }: DashboardProps) {
         const res = await fetch('/api/prices/refresh', { method: 'POST' })
         if (!res.ok) return
         const data = (await res.json()) as { updated: number }
-        if (!cancelled && data.updated > 0) location.reload()
+        if (!cancelled && data.updated > 0) router.refresh()
       } catch {
         // Silent: auto-refresh failures shouldn't disrupt the page.
       }
@@ -48,7 +50,7 @@ export function Dashboard({ items }: DashboardProps) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [router])
 
   // Manual button forces a full refresh of every AUTO value.
   const handleRefresh = async () => {
@@ -60,8 +62,8 @@ export function Dashboard({ items }: DashboardProps) {
         setRefreshError(t('dash_refreshErr'))
         return
       }
-      // Reload so the new market values (and totals) are reflected.
-      location.reload()
+      // Soft-refresh so the new market values (and totals) are reflected.
+      router.refresh()
     } catch {
       setRefreshError(t('dash_networkErr'))
     } finally {
