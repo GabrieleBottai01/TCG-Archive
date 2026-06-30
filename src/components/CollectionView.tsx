@@ -48,6 +48,11 @@ function setView(v: 'gallery' | 'table') {
 }
 function subscribeView(cb: () => void) { viewListeners.add(cb); return () => viewListeners.delete(cb) }
 
+const SORT_KEYS: SortKey[] = ['createdAt', 'marketValue', 'difference', 'name', 'game', 'quantity']
+const GKEYS = ['POKEMON', 'MAGIC', 'YUGIOH', 'ONEPIECE', 'OTHER']
+const TKEYS = ['RAW', 'GRADED', 'SEALED']
+const CKEYS = ['POOR', 'PLAYED', 'LIGHT_PLAYED', 'GOOD', 'EXCELLENT', 'NEAR_MINT', 'MINT']
+
 interface CollectionViewProps {
   initialItems: PlainItem[]
 }
@@ -86,11 +91,6 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
   const visible = sortItems(filterItems(items, filters), sort)
   const totals = collectionTotals(visible)
 
-  const SORT_KEYS: SortKey[] = ['createdAt', 'marketValue', 'difference', 'name', 'game', 'quantity']
-  const GKEYS = ['POKEMON', 'MAGIC', 'YUGIOH', 'ONEPIECE', 'OTHER']
-  const TKEYS = ['RAW', 'GRADED', 'SEALED']
-  const CKEYS = ['POOR', 'PLAYED', 'LIGHT_PLAYED', 'GOOD', 'EXCELLENT', 'NEAR_MINT', 'MINT']
-
   function handleExportCsv() {
     const csvLabels: CsvLabels = {
       game: Object.fromEntries(GKEYS.map((k) => [k, t('game_' + k)])),
@@ -118,7 +118,9 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
     const a = document.createElement('a')
     a.href = url
     a.download = `tcg-archive-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a) // Firefox requires the anchor in the DOM to trigger download
     a.click()
+    a.remove()
     URL.revokeObjectURL(url)
   }
 
