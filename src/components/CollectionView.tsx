@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useSyncExternalStore } from 'react'
-import { filterItems, collectionTotals, itemDifference, type Filters } from '@/lib/value'
+import { filterItems, sortItems, collectionTotals, itemDifference, type Filters, type Sort, type SortKey } from '@/lib/value'
+import { itemsToCsv, type CsvLabels } from '@/lib/csv'
 import { formatEUR } from '@/lib/format'
 import { Money } from '@/components/Money'
 import { FilterBar } from '@/components/FilterBar'
@@ -56,6 +57,7 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
   const view = useSyncExternalStore(subscribeView, readView, () => 'gallery' as const)
   const [items, setItems] = useState<PlainItem[]>(initialItems)
   const [filters, setFilters] = useState<Filters>({})
+  const [sort, setSort] = useState<Sort>({ key: 'createdAt', dir: 'desc' })
   const [editing, setEditing] = useState<PlainItem | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
@@ -81,15 +83,72 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
     setPendingDelete(null)
   }
 
-  const visible = filterItems(items, filters)
+  const visible = sortItems(filterItems(items, filters), sort)
   const totals = collectionTotals(visible)
+
+  const SORT_KEYS: SortKey[] = ['createdAt', 'marketValue', 'difference', 'name', 'game', 'quantity']
+  const GKEYS = ['POKEMON', 'MAGIC', 'YUGIOH', 'ONEPIECE', 'OTHER']
+  const TKEYS = ['RAW', 'GRADED', 'SEALED']
+  const CKEYS = ['POOR', 'PLAYED', 'LIGHT_PLAYED', 'GOOD', 'EXCELLENT', 'NEAR_MINT', 'MINT']
+
+  function handleExportCsv() {
+    const csvLabels: CsvLabels = {
+      game: Object.fromEntries(GKEYS.map((k) => [k, t('game_' + k)])),
+      itemType: Object.fromEntries(TKEYS.map((k) => [k, t('type_' + k)])),
+      condition: Object.fromEntries(CKEYS.map((k) => [k, CONDITION_LABELS[k]])),
+      headers: ['csv_h_name', 'csv_h_game', 'csv_h_type', 'csv_h_condition', 'csv_h_language', 'csv_h_set', 'csv_h_quantity', 'csv_h_purchase', 'csv_h_value', 'csv_h_difference', 'csv_h_source'].map((k) => t(k)),
+    }
+    const csv = itemsToCsv(
+      visible.map((i) => ({
+        name: i.name,
+        game: i.game,
+        itemType: i.itemType,
+        condition: i.condition,
+        language: i.language,
+        setName: i.setName,
+        quantity: i.quantity,
+        purchasePrice: i.purchasePrice,
+        marketValue: i.marketValue,
+        marketValueSource: i.marketValueSource,
+      })),
+      csvLabels,
+    )
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `tcg-archive-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="space-y-4">
       {/* Page header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold text-fg">{t('coll_title')}</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sort controls */}
+          <div className="flex items-center gap-1">
+            <select
+              aria-label={t('sort_label')}
+              value={sort.key}
+              onChange={(e) => setSort((s) => ({ ...s, key: e.target.value as SortKey }))}
+              className="rounded border border-border bg-card px-2 py-1.5 text-sm text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {SORT_KEYS.map((k) => (
+                <option key={k} value={k}>{t('sort_' + k)}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              aria-label={t('sort_dir')}
+              className="rounded border border-border bg-card px-2 py-1.5 text-sm text-fg hover:bg-primary/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setSort((s) => ({ ...s, dir: s.dir === 'asc' ? 'desc' : 'asc' }))}
+            >
+              {sort.dir === 'asc' ? '↑' : '↓'}
+            </button>
+          </div>
           {/* View toggle — styled like theme/lang toggles */}
           <div className="flex overflow-hidden rounded border border-border bg-card text-sm">
             <button
@@ -107,6 +166,13 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
               {t('coll_viewTable')}
             </button>
           </div>
+          <button
+            type="button"
+            className="rounded border border-border bg-card px-3 py-1.5 text-sm text-fg hover:bg-primary/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={handleExportCsv}
+          >
+            {t('csv_export')}
+          </button>
           <button
             type="button"
             className="rounded bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring glow-violet"
