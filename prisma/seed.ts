@@ -15,7 +15,7 @@ async function main() {
   await prisma.user.upsert({
     where: { id: 'default-user' },
     update: {},
-    create: { id: 'default-user', name: 'Default' },
+    create: { id: 'default-user', name: 'Default', email: 'default@tcgarchive.local' },
   })
   console.log('Seeded default user')
 }
