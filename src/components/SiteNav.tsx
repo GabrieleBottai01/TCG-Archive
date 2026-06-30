@@ -2,11 +2,18 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 import { useT } from '@/lib/i18n'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { LanguageToggle } from '@/components/LanguageToggle'
 
-export function SiteNav() {
+export function SiteNav({
+  userEmail,
+  userName,
+}: {
+  userEmail?: string | null
+  userName?: string | null
+}) {
   const t = useT()
   const pathname = usePathname()
 
@@ -32,9 +39,35 @@ export function SiteNav() {
           {link('/', t('nav_dashboard'))}
           {link('/collezione', t('nav_collection'))}
         </nav>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
           <LanguageToggle />
           <ThemeToggle />
+          {userEmail ? (
+            <div className="flex items-center gap-3">
+              <span className="max-w-[12rem] truncate text-sm text-muted">
+                {userName ?? userEmail}
+              </span>
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                className="rounded border border-border px-3 py-1 text-sm text-muted transition-colors hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {t('auth_logout')}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 text-sm">
+              <Link href="/login" className="text-muted transition-colors hover:text-fg">
+                {t('auth_login')}
+              </Link>
+              <Link
+                href="/register"
+                className="rounded bg-primary px-3 py-1 font-medium text-white transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {t('auth_register')}
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </header>

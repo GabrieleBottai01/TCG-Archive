@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Orbitron, Space_Grotesk } from "next/font/google";
+import { auth } from "@/auth";
 import { SiteNav } from "@/components/SiteNav";
 import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
@@ -23,11 +24,12 @@ export const metadata: Metadata = {
 // Set theme + language before paint to avoid a flash of the wrong theme/lang.
 const bootInit = `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');var l=localStorage.getItem('lang');if(l==='en'||l==='it')document.documentElement.lang=l;}catch(e){}})();`;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
   return (
     <html
       lang="it"
@@ -38,7 +40,10 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: bootInit }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <SiteNav />
+        <SiteNav
+          userEmail={session?.user?.email ?? null}
+          userName={session?.user?.name ?? null}
+        />
         <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
           {children}
         </main>
