@@ -37,6 +37,26 @@ describe('filterItems', () => {
   it('returns all when no filters', () => { expect(filterItems([A, B], {})).toEqual([A, B]) })
 })
 
+describe('filterItems advanced', () => {
+  const X = [
+    { quantity: 1, purchasePrice: 2, marketValue: 5, setName: 'Base', language: 'IT' },   // diff +3
+    { quantity: 1, purchasePrice: 10, marketValue: 4, setName: 'Jungle', language: 'EN' }, // diff -6
+    { quantity: 2, purchasePrice: 1, marketValue: 1, setName: 'Base Set 2', language: null },// diff 0
+  ]
+  it('filters by value range (inclusive, per unit)', () => {
+    expect(filterItems(X, { minValue: 4, maxValue: 5 })).toHaveLength(2)
+    expect(filterItems(X, { minValue: 5 })).toHaveLength(1)
+  })
+  it('filters by P/L gain/loss', () => {
+    expect(filterItems(X, { pl: 'gain' })).toHaveLength(1)
+    expect(filterItems(X, { pl: 'loss' })).toHaveLength(1)
+  })
+  it('filters by set substring (case-insensitive) and language', () => {
+    expect(filterItems(X, { setName: 'base' })).toHaveLength(2)
+    expect(filterItems(X, { language: 'it' })).toHaveLength(1)
+  })
+})
+
 const S = [
   { quantity: 1, purchasePrice: 0, marketValue: 5, name: 'Bravo', game: 'MAGIC', createdAt: '2026-01-02' },
   { quantity: 3, purchasePrice: 0, marketValue: 1, name: 'alpha', game: 'POKEMON', createdAt: '2026-01-01' },
