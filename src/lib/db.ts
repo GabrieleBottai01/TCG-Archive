@@ -1,16 +1,14 @@
-import { PrismaNeon } from '@prisma/adapter-neon'
-import { neonConfig } from '@neondatabase/serverless'
-import ws from 'ws'
+import { PrismaNeonHttp } from '@prisma/adapter-neon'
 import { PrismaClient } from '@/generated/prisma/client'
-
-// Node has no global WebSocket until v22; the Neon serverless driver needs one.
-neonConfig.webSocketConstructor = ws
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
 function createPrismaClient() {
-  // Runtime uses the pooled Neon connection (DATABASE_URL) via the WebSocket adapter.
-  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL })
+  // HTTP (fetch-based) Neon driver: one round-trip per query and no WebSocket
+  // handshake — much lower TTFB than the WS pool for the single-query SSR pages
+  // running as serverless functions. The app issues only single-statement
+  // queries (no interactive $transaction), which HTTP mode fully supports.
+  const adapter = new PrismaNeonHttp(process.env.DATABASE_URL ?? '', {})
   return new PrismaClient({ adapter })
 }
 
