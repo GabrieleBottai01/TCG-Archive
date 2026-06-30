@@ -10,8 +10,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:push": "prisma db push",
-    "db:seed": "prisma db seed",
-    "db:setup": "prisma db push && prisma db seed",
     "postinstall": "prisma generate",
     "e2e": "playwright test"
   },
