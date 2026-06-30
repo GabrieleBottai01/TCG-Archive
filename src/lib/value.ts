@@ -1,7 +1,7 @@
 export type ValueItem = {
   quantity: number; purchasePrice: number; marketValue: number
   game?: string; itemType?: string; condition?: string | null
-  setName?: string | null; name?: string
+  setName?: string | null; name?: string; language?: string | null; createdAt?: string
 }
 export function itemDifference(i: ValueItem): number {
   return (i.marketValue - i.purchasePrice) * i.quantity
@@ -29,5 +29,26 @@ export function filterItems<T extends ValueItem>(items: T[], f: Filters): T[] {
       if (!hay.includes(q)) return false
     }
     return true
+  })
+}
+
+export type SortKey = 'createdAt' | 'marketValue' | 'difference' | 'name' | 'game' | 'quantity'
+export type SortDir = 'asc' | 'desc'
+export type Sort = { key: SortKey; dir: SortDir }
+
+export function sortItems<T extends ValueItem>(items: T[], sort: Sort): T[] {
+  const dir = sort.dir === 'asc' ? 1 : -1
+  const ci = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'base' })
+  return [...items].sort((a, b) => {
+    let c = 0
+    switch (sort.key) {
+      case 'name': c = ci(a.name ?? '', b.name ?? ''); break
+      case 'game': c = ci(a.game ?? '', b.game ?? ''); break
+      case 'marketValue': c = a.marketValue - b.marketValue; break
+      case 'quantity': c = a.quantity - b.quantity; break
+      case 'difference': c = itemDifference(a) - itemDifference(b); break
+      case 'createdAt': c = (a.createdAt ?? '').localeCompare(b.createdAt ?? ''); break
+    }
+    return c * dir
   })
 }
