@@ -244,7 +244,7 @@ export function Dashboard({ items }: DashboardProps) {
             </h2>
             <div className="rounded-xl border border-border bg-card divide-y divide-border">
               {rows.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between px-4 py-3 gap-3">
+                <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs text-muted tabular-nums w-4 shrink-0">{idx + 1}</span>
                     <span className="font-medium text-fg truncate">{item.name}</span>
@@ -274,7 +274,7 @@ export function Dashboard({ items }: DashboardProps) {
                 </h2>
                 <div className="rounded-xl border border-border bg-card divide-y divide-border">
                   {gains.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between px-4 py-3 gap-3">
+                    <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-xs text-muted tabular-nums w-4 shrink-0">{idx + 1}</span>
                         <span className="font-medium text-fg truncate">{item.name}</span>
@@ -294,7 +294,7 @@ export function Dashboard({ items }: DashboardProps) {
                 </h2>
                 <div className="rounded-xl border border-border bg-card divide-y divide-border">
                   {losses.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between px-4 py-3 gap-3">
+                    <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-xs text-muted tabular-nums w-4 shrink-0">{idx + 1}</span>
                         <span className="font-medium text-fg truncate">{item.name}</span>
