@@ -75,6 +75,7 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
           type="button"
           className="text-sm text-muted underline underline-offset-2 hover:text-fg transition-colors"
           aria-expanded={advOpen}
+          aria-controls="adv-filters"
           onClick={() => setAdvOpen((o) => !o)}
         >
           {t('adv_toggle')}
@@ -83,7 +84,7 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
 
       {/* Advanced filters row */}
       {advOpen && (
-        <div className="flex flex-wrap gap-2 items-center">
+        <div id="adv-filters" className="flex flex-wrap gap-2 items-center">
           {/* Min value */}
           <input
             type="number"
@@ -148,7 +149,7 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
           {/* Reset */}
           <button
             type="button"
-            className={inputClass + ' cursor-pointer hover:bg-muted/20 transition-colors'}
+            className="rounded border border-primary/40 bg-primary-soft px-3 py-1 text-sm font-medium text-primary hover:bg-primary/15 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => onChange({})}
           >
             {t('filter_reset')}
