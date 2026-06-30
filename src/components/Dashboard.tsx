@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { collectionTotals } from '@/lib/value'
+import { collectionTotals, groupTotals, topByValue, topByDifference, averageValuePerPiece, itemDifference } from '@/lib/value'
 import { formatEUR } from '@/lib/format'
 import { Money } from '@/components/Money'
 import { SummaryCard } from '@/components/SummaryCard'
 import { GameBadge } from '@/components/GameBadge'
-import { useT } from '@/lib/i18n'
+import { useT, CONDITION_LABELS } from '@/lib/i18n'
 import type { PlainItem } from '@/components/CollectionView'
 
 interface DashboardProps {
@@ -114,13 +114,14 @@ export function Dashboard({ items }: DashboardProps) {
       </section>
 
       {/* Secondary stats */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
         <SummaryCard label={t('dash_costTotal')}>{formatEUR(totals.totalCost)}</SummaryCard>
         <SummaryCard label={t('dash_pl')}>
           <Money value={totals.profitLoss} signed />
         </SummaryCard>
         <SummaryCard label={t('dash_items')}>{totals.itemCount}</SummaryCard>
         <SummaryCard label={t('dash_pieces')}>{totals.pieceCount}</SummaryCard>
+        <SummaryCard label={t('stats_avgPerPiece')}>{formatEUR(averageValuePerPiece(items))}</SummaryCard>
       </div>
 
       {/* Per-game breakdown */}
@@ -157,6 +158,158 @@ export function Dashboard({ items }: DashboardProps) {
           </div>
         </section>
       )}
+
+      {/* Per tipo */}
+      {(() => {
+        const rows = groupTotals(items, (i) => i.itemType ?? '')
+        if (rows.length === 0) return null
+        return (
+          <section>
+            <h2 className="text-xs font-medium uppercase tracking-wider text-muted mb-3">
+              {t('stats_byType')}
+            </h2>
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+              {rows.map(({ key, totals: gt }) => (
+                <div
+                  key={key}
+                  className="rounded-xl border border-border bg-card px-4 py-3 flex items-center justify-between transition-colors hover:border-primary/50"
+                >
+                  <div>
+                    <p className="font-medium text-fg">{t('type_' + key)}</p>
+                    <p className="text-xs text-muted mt-0.5">
+                      {`${gt.itemCount} ${t(gt.itemCount === 1 ? 'unit_article' : 'unit_articles')} · ${gt.pieceCount} ${t(gt.pieceCount === 1 ? 'unit_piece' : 'unit_pieces')}`}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-fg text-sm tabular-nums">
+                      {formatEUR(gt.totalValue)}
+                    </p>
+                    <p className="text-xs mt-0.5">
+                      <Money value={gt.profitLoss} signed />
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )
+      })()}
+
+      {/* Per condizione */}
+      {(() => {
+        const rows = groupTotals(items, (i) => i.condition ?? '')
+        if (rows.length === 0) return null
+        return (
+          <section>
+            <h2 className="text-xs font-medium uppercase tracking-wider text-muted mb-3">
+              {t('stats_byCondition')}
+            </h2>
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+              {rows.map(({ key, totals: gt }) => (
+                <div
+                  key={key || '__none__'}
+                  className="rounded-xl border border-border bg-card px-4 py-3 flex items-center justify-between transition-colors hover:border-primary/50"
+                >
+                  <div>
+                    <p className="font-medium text-fg">
+                      {key ? (CONDITION_LABELS[key] ?? key) : t('stats_noCondition')}
+                    </p>
+                    <p className="text-xs text-muted mt-0.5">
+                      {`${gt.itemCount} ${t(gt.itemCount === 1 ? 'unit_article' : 'unit_articles')} · ${gt.pieceCount} ${t(gt.pieceCount === 1 ? 'unit_piece' : 'unit_pieces')}`}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-fg text-sm tabular-nums">
+                      {formatEUR(gt.totalValue)}
+                    </p>
+                    <p className="text-xs mt-0.5">
+                      <Money value={gt.profitLoss} signed />
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )
+      })()}
+
+      {/* Top per valore */}
+      {(() => {
+        const rows = topByValue(items, 5)
+        if (rows.length === 0) return null
+        return (
+          <section>
+            <h2 className="text-xs font-medium uppercase tracking-wider text-muted mb-3">
+              {t('stats_topValue')}
+            </h2>
+            <div className="rounded-xl border border-border bg-card divide-y divide-border">
+              {rows.map((item, idx) => (
+                <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-muted tabular-nums w-4 shrink-0">{idx + 1}</span>
+                    <span className="font-medium text-fg truncate">{item.name}</span>
+                    <GameBadge game={item.game ?? ''} />
+                  </div>
+                  <span className="font-semibold text-fg text-sm tabular-nums shrink-0">
+                    {formatEUR(item.marketValue * item.quantity)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )
+      })()}
+
+      {/* Top guadagni / Top perdite */}
+      {(() => {
+        const gains = topByDifference(items, 5, 'desc').filter((i) => itemDifference(i) > 0)
+        const losses = topByDifference(items, 5, 'asc').filter((i) => itemDifference(i) < 0)
+        if (gains.length === 0 && losses.length === 0) return null
+        return (
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+            {gains.length > 0 && (
+              <section>
+                <h2 className="text-xs font-medium uppercase tracking-wider text-muted mb-3">
+                  {t('stats_topGain')}
+                </h2>
+                <div className="rounded-xl border border-border bg-card divide-y divide-border">
+                  {gains.map((item, idx) => (
+                    <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs text-muted tabular-nums w-4 shrink-0">{idx + 1}</span>
+                        <span className="font-medium text-fg truncate">{item.name}</span>
+                      </div>
+                      <span className="text-sm tabular-nums shrink-0">
+                        <Money value={itemDifference(item)} signed />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+            {losses.length > 0 && (
+              <section>
+                <h2 className="text-xs font-medium uppercase tracking-wider text-muted mb-3">
+                  {t('stats_topLoss')}
+                </h2>
+                <div className="rounded-xl border border-border bg-card divide-y divide-border">
+                  {losses.map((item, idx) => (
+                    <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs text-muted tabular-nums w-4 shrink-0">{idx + 1}</span>
+                        <span className="font-medium text-fg truncate">{item.name}</span>
+                      </div>
+                      <span className="text-sm tabular-nums shrink-0">
+                        <Money value={itemDifference(item)} signed />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Price refresh */}
       <section className="rounded-xl border border-border bg-surface p-5">
