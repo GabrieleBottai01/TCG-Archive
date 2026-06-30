@@ -51,6 +51,9 @@ describe('sortItems', () => {
   it('sorts by name case-insensitively', () => {
     expect(sortItems(S, { key: 'name', dir: 'asc' }).map((i) => i.name)).toEqual(['alpha', 'Bravo', 'Charlie'])
   })
+  it('sorts by game', () => {
+    expect(sortItems(S, { key: 'game', dir: 'asc' }).map((i) => i.game)).toEqual(['MAGIC', 'POKEMON', 'POKEMON'])
+  })
   it('sorts by difference (per-line P/L)', () => {
     // diffs: Bravo (5-0)*1=5, alpha (1-0)*3=3, Charlie (2-10)*2=-16
     expect(sortItems(S, { key: 'difference', dir: 'desc' }).map((i) => i.name)).toEqual(['Bravo', 'alpha', 'Charlie'])
