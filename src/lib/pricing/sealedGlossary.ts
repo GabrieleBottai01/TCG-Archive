@@ -9,7 +9,11 @@
 
 const STOPWORDS = new Set(['di', 'da', 'del', 'della', 'delle', 'dei', 'con', 'per', 'the', 'of', 'and', 'il', 'lo', 'la', 'le', 'gli'])
 
-/** Longest phrases first so multi-word entries win over their own substrings. */
+/**
+ * Human-ordered for readability; longest-phrase-wins is enforced in code (see
+ * GLOSSARY_REGEX below), not by array order, so overlapping entries added in
+ * any order remain safe.
+ */
 const GLOSSARY: ReadonlyArray<readonly [string, string]> = [
   ["primi compagni d avventura", 'first partner pack'],
   ['primi compagni', 'first partner pack'],
@@ -39,6 +43,25 @@ const GLOSSARY: ReadonlyArray<readonly [string, string]> = [
   ['mazzo', 'deck'],
 ]
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+const GLOSSARY_MAP: ReadonlyMap<string, string> = new Map(GLOSSARY)
+
+// Sorted by descending key length so, at any given match position, the longest
+// applicable phrase is tried (and wins) before its own shorter substrings —
+// e.g. "bundle di buste" is attempted before "buste" — regardless of the
+// human-authored order of GLOSSARY above.
+const GLOSSARY_REGEX = new RegExp(
+  GLOSSARY.map(([it]) => it)
+    .slice()
+    .sort((a, b) => b.length - a.length)
+    .map((it) => `\\b${escapeRegExp(it)}\\b`)
+    .join('|'),
+  'g'
+)
+
 export function normalizeQuery(q: string): string {
   return q
     .normalize('NFD')
@@ -49,12 +72,15 @@ export function normalizeQuery(q: string): string {
     .trim()
 }
 
+// normalizeQuery guarantees the input to this function is already lowercase
+// a-z0-9 tokens separated by single spaces (all other characters, including
+// diacritics and punctuation, are stripped). That means every token boundary
+// coincides with a `\b` boundary (word char <-> space/edge), so matching
+// glossary keys with `\b...\b` is safe and can't straddle partial tokens.
 export function translateSealedQuery(q: string): string {
-  let out = normalizeQuery(q)
-  for (const [it, en] of GLOSSARY) {
-    if (out.includes(it)) out = out.replace(it, en)
-  }
-  return out.replace(/\s+/g, ' ').trim()
+  const normalized = normalizeQuery(q)
+  const translated = normalized.replace(GLOSSARY_REGEX, (match) => GLOSSARY_MAP.get(match) ?? match)
+  return translated.replace(/\s+/g, ' ').trim()
 }
 
 export function queryTokens(q: string): string[] {

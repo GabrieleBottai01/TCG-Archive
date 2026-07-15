@@ -12,10 +12,10 @@ describe('normalizeQuery', () => {
 
 describe('translateSealedQuery', () => {
   it('translates the user-reported case', () => {
-    expect(translateSealedQuery("Primi compagni d'avventura")).toContain('first partner pack')
+    expect(translateSealedQuery("Primi compagni d'avventura")).toBe('first partner pack')
   })
   it('translates elite trainer box', () => {
-    expect(translateSealedQuery('Collezione Allenatore Élite')).toContain('elite trainer box')
+    expect(translateSealedQuery('Collezione Allenatore Élite')).toBe('elite trainer box')
   })
   it('prefers the longest phrase match', () => {
     // "bundle buste" must not be split into "bundle" + "buste"
@@ -26,6 +26,16 @@ describe('translateSealedQuery', () => {
   })
   it('keeps unknown words as-is', () => {
     expect(translateSealedQuery('Rivali Predestinati')).toBe('rivali predestinati')
+  })
+  it('does not match a glossary key that is only a prefix of a word', () => {
+    // "mazzo" must not fire inside "mazzolino" — not a sealed product term
+    expect(translateSealedQuery('Mazzolino di fiori')).toBe('mazzolino di fiori')
+  })
+  it('translates every occurrence of a repeated phrase, not just the first', () => {
+    expect(translateSealedQuery('Buste Buste')).toBe('booster booster')
+  })
+  it('translates every occurrence of a repeated phrase across other words', () => {
+    expect(translateSealedQuery('Scatola e Scatola')).toBe('box e box')
   })
 })
 
