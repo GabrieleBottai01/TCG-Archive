@@ -291,7 +291,11 @@ const MULTI_UNIT_PATTERNS: readonly MultiUnitPattern[] = [
     max: Infinity,
   },
   // A bare count in leading position: "3 Elite Trainer Box Destined Rivals ITA".
-  { regex: /^(\d+)\s/g, quantity: (m) => Number(m[1]), max: MAX_PLAUSIBLE_LOT },
+  // The optional `n`/`nr` prefix covers how Italian and German sellers actually
+  // write it — "n.3 Elite Trainer Box", "nr 2 ETB". normalizeQuery strips the
+  // dot, so those arrive as "n 3 ..." and the bare-digit rule alone misses them.
+  // `no` is deliberately NOT accepted here: "No. 2 Trainer" is a real card name.
+  { regex: /^(?:n(?:r)?\s+)?(\d+)\s/g, quantity: (m) => Number(m[1]), max: MAX_PLAUSIBLE_LOT },
   { regex: new RegExp(`^(${COUNT_WORDS})\\s`, 'g'), quantity: (m) => COUNT_WORD_VALUE[m[1]] ?? 0, max: Infinity },
 ]
 

@@ -316,4 +316,18 @@ describe('confidence is legible', () => {
     expect(r.confidence).toBe(0)
     expect(r.reason).toContain('lot')
   })
+  // Found by the controller's independent probe: Italian sellers write the count
+  // as "n.3", which normalizeQuery turns into "n 3" — so the bare-leading-digit
+  // rule missed it and the title scored 0.97, the highest confidence in the whole
+  // review. The matcher is most certain exactly when a lot is short and tidy.
+  it('rejects the Italian "n.N" leading count', () => {
+    expect(matchListing('n.3 Elite Trainer Box Destined Rivals ITA', etbIt, 'EBAY_IT').ok).toBe(false)
+    expect(matchListing('n. 2 Elite Trainer Box Destined Rivals ITA', etbIt, 'EBAY_IT').ok).toBe(false)
+    expect(matchListing('nr 2 Elite Trainer Box Destined Rivals ITA', etbIt, 'EBAY_IT').ok).toBe(false)
+  })
+
+  it('still accepts "n.1", which is one box, not a lot', () => {
+    expect(matchListing('n.1 Elite Trainer Box Destined Rivals ITA', etbIt, 'EBAY_IT').ok).toBe(true)
+  })
+
 })
