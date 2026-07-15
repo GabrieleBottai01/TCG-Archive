@@ -43,9 +43,38 @@ Rendere l'inserimento in collezione il più rapido possibile (cerca → scegli �
 |---|---|---|---|
 | Carte | `GET /v2/it/cards?name=<q>` (lista), `GET /v2/it/cards/<id>` (dettaglio) | `pricing.cardmarket.low` (EUR) | Alta — mercato EU |
 | Sigillati | tcgcsv `groups`/`products`/`prices` | `marketPrice` USD → EUR | **Stima** — mercato USA |
-| Cambio | Frankfurter (BCE), cache 24h | — | — |
+| Cambio | `GET https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR` (BCE), cache 24h | — | — |
 
 Immagini TCGdex richiedono un suffisso: `https://assets.tcgdex.net/it/sv/sv10/165/high.webp`.
+
+### Forme delle risposte (verificate con richieste reali il 2026-07-15)
+
+**Lista carte** — `GET /v2/it/cards?name=Avventura` restituisce **solo** questi campi:
+```json
+[{"id":"sv10-165","localId":"165","name":"Avventura di Armonio","image":"https://assets.tcgdex.net/it/sv/sv10/165"}]
+```
+⚠️ **Niente set, niente prezzo nella lista.** Conseguenze di design:
+- Il **prezzo si recupera solo alla selezione** (chiamata di dettaglio), non per ogni risultato: evita N+1 richieste.
+- Il **nome del set** nei risultati si ricava dal prefisso dell'id (`sv10-165` → `sv10`) risolto su una mappa `id → nome` caricata **una volta** da `GET /v2/it/sets` e cacheata.
+
+**Dettaglio carta** — `GET /v2/it/cards/sv10-165`:
+```json
+{"id":"sv10-165","localId":"165","name":"Avventura di Armonio",
+ "image":"https://assets.tcgdex.net/it/sv/sv10/165",
+ "set":{"id":"sv10","name":"Rivali Predestinati","logo":"...","cardCount":{"official":182,"total":244}},
+ "updated":"...","pricing":{"cardmarket":{"updated":"2026-07-14T18:05:07.978Z","unit":"EUR",
+   "avg":0.08,"low":0.02,"trend":0.09,...},"tcgplayer":{"unit":"USD",...}}}
+```
+
+**Cambio** — `GET https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR`:
+```json
+{"amount":1.0,"base":"USD","date":"2026-07-14","rates":{"EUR":0.87681}}
+```
+Fallback verificato: `GET https://open.er-api.com/v6/latest/USD` → `{"result":"success","rates":{"EUR":0.875764},...}`.
+
+⚠️ `api.frankfurter.app` risponde **301** (serve `.dev`) e `api.exchangerate.host` ora **richiede una API key**: non usarli.
+
+Il tasso reale al 2026-07-15 è **0.877** contro lo **0.92** hardcoded: i sigillati sono oggi **sovrastimati di ~5%**.
 
 ### Provider
 

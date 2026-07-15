@@ -41,6 +41,9 @@
 
 - **`?name=Primi*` su TCGdex restituisce `[]`**: il filtro è substring case-insensitive, l'asterisco è letterale. Niente wildcard.
 - **Le immagini TCGdex richiedono un suffisso**: `.../165` da solo non è un'immagine; serve `/high.webp` o `/low.webp`.
+- **La lista carte TCGdex NON ha né set né prezzo** (solo `id`, `localId`, `name`, `image`). Il prezzo sta solo nel dettaglio `/v2/it/cards/<id>` → non ciclare la lista per i prezzi (N+1): recuperarlo **alla selezione**. Il nome del set si ricava dal prefisso dell'id (`sv10-165`→`sv10`) su una mappa cacheata da `/v2/it/sets`.
+- **API cambio**: `api.frankfurter.app` risponde **301** e `api.exchangerate.host` ora **richiede API key**. Usare `https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR` (verificato), fallback `https://open.er-api.com/v6/latest/USD`.
+- **Il tasso hardcoded 0.92 è sbagliato**: il reale al 2026-07-15 è **0.877** → sigillati sovrastimati ~5%.
 - **"Primi compagni d'avventura" non è una carta**: è un sigillato (First Partner Pack). Nessuna API gratuita lo ha in italiano → serve il glossario. Non cercarlo tra le carte.
 - **`handlePickSealed` oggi scarta `priceEur` e `externalId`** già restituiti da `sealed.ts` (ItemFormModal.tsx:127-136). L'infrastruttura di pricing sigillati esiste già: va **collegata**, non riscritta.
 - **tcgcsv non ha a catalogo i sigillati IT/JP**: il prezzo restituito è quello del prodotto **inglese** equivalente. Da etichettare.
