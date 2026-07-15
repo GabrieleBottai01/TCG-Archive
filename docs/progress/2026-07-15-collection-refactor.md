@@ -50,10 +50,49 @@
 - **Test locali non coprono DB/auth**: `.env` locale usa SQLite mentre l'app usa l'adapter Neon. Verificare con tsc/lint/test/build; il runtime solo in produzione.
 - **Copertura prezzi TCGdex verificata solo su 12 carte**: campione piccolo, da riverificare su dati reali.
 
+## ⚠️ Lezione appresa: i mock hanno nascosto lo stesso bug due volte
+
+Il Task 5 (ricerca sigillati) è passato **due volte** con i test unitari verdi mentre era **sbagliato sui dati reali**.
+La prima fixture era irrealistica (metteva "First Partner Pack" dentro il gruppo "Sword & Shield", mentre nella
+realtà tcgcsv ha un gruppo dedicato). Regola per questo modulo: **verificare sempre contro tcgcsv live**, non
+solo con i mock. Script rapido, dalla root del repo:
+
+```ts
+// live-check.ts
+import { searchSealedProducts } from '@/lib/pricing/sealed'
+;(async () => console.log(await searchSealedProducts("Collezione Allenatore Elite Rivali Predestinati")))()
+```
+```bash
+npx tsx live-check.ts
+```
+
 ## Log modifiche
 
 | Data | Modifica | Verifica | Commit |
 |---|---|---|---|
-| 2026-07-15 | Spec di design + file avanzamento + branch | — | (in corso) |
+| 2026-07-15 | Spec di design + file avanzamento + branch | — | `81e42d9` |
+| 2026-07-15 | Piano di implementazione (9 task) | self-review | `77ec66f` |
+| 2026-07-15 | Task 1: `lib/fx.ts` — `getUsdToEurRate()` cache 24h + fallback `0.877`, `api.frankfurter.dev` | `npm test -- fx` 4/4; tsc/lint puliti; review ✅ | `ea12187` |
+| 2026-07-15 | Task 2: `sealedGlossary.ts` — glossario IT→EN | 11/11; review ✅ dopo 1 fix (regex single-pass word-boundary) | `98b6689`, `e5a5385` |
+| 2026-07-15 | Task 3: `tcgdex.ts` — ricerca carte IT + prezzo Cardmarket EUR | 9/9; review ✅ dopo 1 fix (cache-poisoning su /sets) | `3380934`, `624a9be` |
+| 2026-07-15 | Task 4: registry → TCGdex, **pokemontcg.io rimosso**, route orfana `/api/sets/search` eliminata | 62/62; tsc/lint puliti; review ✅ | `5995595` |
+| 2026-07-15 | Task 5: `sealed.ts` — cascata + FX live | 15/15 unit verdi **ma live ANCORA sbagliato** (vedi sotto) | `a059521`, `3674009`, `e3caaec` |
+
+## 🔴 Bug aperto — Task 5 (riprendere da qui)
+
+Verifica live al commit `e3caaec`:
+
+| Query | Risultato | Esito |
+|---|---|---|
+| "Primi compagni d'avventura" | 9 risultati `[exact]`, prezzi corretti | ✅ **bug originale risolto** |
+| "Collezione Allenatore Elite Rivali Predestinati" | trova "Destined Rivals Elite Trainer Box — 150.74 EUR" **ma** contaminato da prodotti "Chaos Rising" | ❌ |
+| "Rivali Predestinati" | 30 risultati tutti di "Chaos Rising", nessuno di Destined Rivals | ❌ |
+| "zzzzqqqq" | 0 risultati, nessun riempimento | ✅ |
+
+**Da diagnosticare**: perché il set hint "rivali predestinati" seleziona il gruppo "Chaos Rising".
+Sospetto più forte: `.slice(0, 4)` prende i gruppi nell'ordine di inserimento della Map, e tcgcsv
+restituisce `/groups` in ordine di **data di pubblicazione decrescente** → vince il set più recente.
+Altri sospetti: match del set hint troppo permissivo (token corti/substring), o il fallback
+whole-query (step 4c) che scatta quando non dovrebbe.
 | 2026-07-15 | Task 1: `lib/fx.ts` — `getUsdToEurRate()` con cache 24h e fallback `0.877`, endpoint `api.frankfurter.dev` | `npm test -- fx` → 4/4 verdi; `tsc --noEmit` e `npm run lint` puliti | `ea12187` |
 | 2026-07-15 | Task 2 (SDD): `pricing/sealedGlossary.ts` — `normalizeQuery`/`translateSealedQuery`/`queryTokens`, glossario IT→EN sigillati (funzioni pure, non ancora collegate a `sealed.ts`) | `npm test -- sealedGlossary` → 8/8 verdi; `npm test` (suite intera) → 54/54 verdi; `tsc --noEmit` e `npm run lint` puliti | `98b6689` |
