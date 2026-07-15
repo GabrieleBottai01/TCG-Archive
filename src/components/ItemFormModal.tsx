@@ -208,6 +208,11 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       ...prev,
       itemType: checked ? 'GRADED' : 'RAW',
       marketValueSource: 'MANUAL',
+      // Clearing the source but keeping the figure would leave the raw card's
+      // auto price sitting in a MANUAL field — saved, invisible inside the
+      // collapsed <details>, and labelled `f_priceManual` ("entered manually")
+      // for a number the user never typed. Same reset as clearPick/handlePick.
+      ...(checked ? { marketValue: 0 } : {}),
     }))
     if (checked) {
       // Drop the auto price entirely, not just the source: leaving it set would

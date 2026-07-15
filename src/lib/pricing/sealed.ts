@@ -54,7 +54,13 @@ export type SealedSearchResult = {
   matchLevel: 'exact' | 'fuzzy'
 }
 
-const norm = (x: string) => x.toLowerCase().replace(/[:\-]/g, ' ').replace(/\s+/g, ' ').trim()
+// Group names, set names and queries are ALL normalized with the single
+// `normalizeQuery` from sealedGlossary. A second, weaker normalizer used to
+// live here (it replaced only `:` and `-`), so `&` survived on the group side
+// while `normalizeQuery` stripped it on the query side — and every set whose
+// English name contains `&` (20 of the ~217 live tcgcsv groups: "SWSH01:
+// Sword & Shield Base Set", "SV01: Scarlet & Violet Base Set", ...) could
+// never match. Both sides of every comparison must use the same normalizer.
 const toEur = (usd: number | null | undefined, rate: number) =>
   typeof usd === 'number' ? Math.round(usd * rate * 100) / 100 : null
 
@@ -136,14 +142,14 @@ export async function searchSealedProducts(q: string): Promise<SealedSearchResul
 
   if (resolvedSetNames.size > 0) {
     for (const g of groups) {
-      const gn = norm(g.name)
+      const gn = normalizeQuery(g.name)
       for (const name of resolvedSetNames) {
         if (name && gn.includes(name)) addCandidate(g, 1000 + name.length)
       }
     }
   } else if (setHintTokens.length > 0) {
     for (const g of groups) {
-      const gn = norm(g.name)
+      const gn = normalizeQuery(g.name)
       for (const t of setHintTokens) {
         if (gn.includes(t)) addCandidate(g, t.length)
       }
@@ -162,7 +168,7 @@ export async function searchSealedProducts(q: string): Promise<SealedSearchResul
   const translatedNorm = normalizeQuery(translated)
   if (chosen.size === 0 && translatedNorm) {
     for (const g of groups) {
-      if (norm(g.name).includes(translatedNorm)) chosen.set(g.groupId, g)
+      if (normalizeQuery(g.name).includes(translatedNorm)) chosen.set(g.groupId, g)
     }
   }
 

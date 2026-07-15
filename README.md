@@ -73,10 +73,12 @@ L'app è pronta per Netlify (Next.js runtime + Neon Postgres). Vedi `netlify.tom
 
 - **`src/lib/value.ts`** — funzioni pure per i calcoli di valore (differenza, totali, filtri).
   Unica fonte di verità per la matematica monetaria; i componenti non calcolano totali inline.
-- **`src/lib/pricing/`** — astrazione a *provider* pluggable. `PokemonTcgIoProvider` recupera
-  i prezzi automatici (solo Pokémon raw); `ManualProvider` per tutto il resto. Aggiungere
-  l'API ufficiale Cardmarket in futuro = una nuova implementazione, senza riscritture.
-- **API routes** (`src/app/api/...`) — la chiave dell'API prezzi resta lato server. Item CRUD
+- **`src/lib/pricing/`** — astrazione a *provider* pluggable. `TcgdexProvider` recupera i prezzi
+  automatici delle carte raw (Cardmarket in EUR); `TcgcsvProvider` quelli dei prodotti sigillati
+  (TCGplayer in USD, convertiti); `ManualProvider` per tutto il resto (gradate incluse). Nessuna
+  delle due fonti richiede API key. Aggiungere l'API ufficiale Cardmarket in futuro = una nuova
+  implementazione, senza riscritture.
+- **API routes** (`src/app/api/...`) — le chiamate alle fonti prezzi restano lato server. Item CRUD
   validato con Zod; mutazioni scopate per `userId` (IDOR-safe).
 - **Pagine** — `/` dashboard (riepilogo + "Aggiorna valori"), `/collezione` (lista + filtri +
   totali live + modale aggiungi/modifica con ricerca carte).
