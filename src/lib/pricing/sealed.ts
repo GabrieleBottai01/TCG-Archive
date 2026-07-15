@@ -88,31 +88,71 @@ export async function searchSealedProducts(q: string): Promise<SealedSearchResul
   // first by tcgcsv (publish-date descending), i.e. the newest sets,
   // regardless of the query.
 
-  const setHintTokens = queryTokens(setHint)
+  const setHintTokens = [...new Set(queryTokens(setHint))]
 
   // 4a: resolve the set hint against TCGdex's IT/EN set names. Checking the
   // Italian name is what lets an Italian set-hint token (e.g. "rivali")
   // reach the English set name tcgcsv actually uses ("Destined Rivals"),
   // since TCGplayer/tcgcsv is English-only. Direction matters: a set-hint
   // token must appear IN the (longer) set name, not the other way round.
-  const resolvedSetNames = new Set<string>()
+  //
+  // A token like "rivali" can appear in more than one set's name (e.g. both
+  // "Rising Rivals" and "Destined Rivals"), so a bare "does any token match"
+  // check is ambiguous and picks up unrelated sets. Instead, score every set
+  // by how many DISTINCT set-hint tokens it matches and keep only the
+  // set(s) with the highest score — the most specific match wins, and
+  // partial/weaker matches (score below the max) are discarded entirely.
+  const setScores = new Map<string, number>() // set id -> score
   for (const s of sets) {
     const it = s.it ? normalizeQuery(s.it) : ''
     const en = s.en ? normalizeQuery(s.en) : ''
-    const matched = (it !== '' && setHintTokens.some((t) => it.includes(t))) || (en !== '' && setHintTokens.some((t) => en.includes(t)))
-    if (matched && s.en) resolvedSetNames.add(normalizeQuery(s.en))
+    let score = 0
+    for (const t of setHintTokens) {
+      if ((it !== '' && it.includes(t)) || (en !== '' && en.includes(t))) score++
+    }
+    if (score > 0) setScores.set(s.id, score)
+  }
+  const bestSetScore = setScores.size > 0 ? Math.max(...setScores.values()) : 0
+  const resolvedSetNames = new Set<string>()
+  for (const s of sets) {
+    if (s.en && setScores.get(s.id) === bestSetScore && bestSetScore > 0) resolvedSetNames.add(normalizeQuery(s.en))
   }
 
-  // 4b: match the resolved English set name(s) — or, if TCGdex had nothing,
-  // the raw set-hint tokens — against tcgcsv group names, same token rule.
-  const groupHintTokens = resolvedSetNames.size > 0 ? [...resolvedSetNames].flatMap((n) => queryTokens(n)) : setHintTokens
+  // 4b: match the resolved English set name(s) against tcgcsv group names as
+  // a WHOLE PHRASE, not token by token — tokenizing "Destined Rivals" into
+  // ["destined","rivals"] let an unrelated group containing only "rivals"
+  // (or, worse, a token contaminated by a spurious 4a match) leak in. Only
+  // when TCGdex resolved no set name at all do we fall back to matching the
+  // raw set-hint tokens (never product-type words — those were already
+  // stripped into `productTypes` above). Candidates are ranked by match
+  // quality (phrase match beats token match; longer/more specific matches
+  // beat shorter ones) so the later `.slice(0, 4)` keeps the best matches,
+  // not merely whichever groups tcgcsv happened to list first.
+  const candidates = new Map<number, { group: TcgGroup; quality: number }>()
+  const addCandidate = (g: TcgGroup, quality: number) => {
+    const existing = candidates.get(g.groupId)
+    if (!existing || quality > existing.quality) candidates.set(g.groupId, { group: g, quality })
+  }
 
-  const chosen = new Map<number, TcgGroup>()
-  if (groupHintTokens.length > 0) {
+  if (resolvedSetNames.size > 0) {
     for (const g of groups) {
       const gn = norm(g.name)
-      if (groupHintTokens.some((t) => gn.includes(t))) chosen.set(g.groupId, g)
+      for (const name of resolvedSetNames) {
+        if (name && gn.includes(name)) addCandidate(g, 1000 + name.length)
+      }
     }
+  } else if (setHintTokens.length > 0) {
+    for (const g of groups) {
+      const gn = norm(g.name)
+      for (const t of setHintTokens) {
+        if (gn.includes(t)) addCandidate(g, t.length)
+      }
+    }
+  }
+
+  const chosen = new Map<number, TcgGroup>()
+  for (const c of [...candidates.values()].sort((a, b) => b.quality - a.quality)) {
+    chosen.set(c.group.groupId, c.group)
   }
 
   // 4c: the set hint was empty or matched nothing — fall back to matching

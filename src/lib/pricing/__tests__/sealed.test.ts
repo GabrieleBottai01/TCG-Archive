@@ -116,4 +116,73 @@ describe('searchSealedProducts', () => {
       expect(etb?.matchLevel).toBe('exact')
     })
   })
+
+  describe('set-hint disambiguation (regression: "Rivali Predestinati" leaking Chaos Rising)', () => {
+    // Real-world collision: the set-hint token "rivali" appears in TWO
+    // TCGdex sets — pl2 "L'Ascesa dei Rivali"/"Rising Rivals" (partial match,
+    // only "rivali") and sv10 "Rivali Predestinati"/"Destined Rivals" (full
+    // match, both "rivali" and "predestinati"). Tokenizing the resolved
+    // English name(s) used to let the spurious "rising" token from the
+    // wrong set select an unrelated, newer group ("Chaos Rising") via
+    // .slice(0, 4) publish-date ordering. Only sv10 must survive 4a, and 4b
+    // must match "destined rivals" as a whole phrase so "Chaos Rising" (which
+    // does not contain that phrase) can never be selected.
+    const DISAMBIG_GROUPS = { results: [
+      { groupId: 300, name: 'Chaos Rising' }, // decoy: newest set, listed first
+      { groupId: 100, name: 'Destined Rivals' },
+    ] }
+    const DISAMBIG_PRODUCTS: Record<number, { results: unknown[] }> = {
+      300: { results: [
+        { productId: 3001, name: 'Chaos Rising Booster Bundle', imageUrl: 'https://img/cr.jpg', extendedData: [] },
+      ] },
+      100: { results: [
+        { productId: 1001, name: 'Destined Rivals Elite Trainer Box', imageUrl: 'https://img/etb.jpg', extendedData: [] },
+        { productId: 1002, name: 'Destined Rivals Booster Bundle', imageUrl: 'https://img/bb.jpg', extendedData: [] },
+      ] },
+    }
+    const DISAMBIG_PRICES: Record<number, { results: unknown[] }> = {
+      300: { results: [{ productId: 3001, subTypeName: 'Normal', marketPrice: 15 }] },
+      100: { results: [
+        { productId: 1001, subTypeName: 'Normal', marketPrice: 40 },
+        { productId: 1002, subTypeName: 'Normal', marketPrice: 20 },
+      ] },
+    }
+    const DISAMBIG_IT_SETS = [
+      { id: 'pl2', name: "L'Ascesa dei Rivali" },
+      { id: 'sv10', name: 'Rivali Predestinati' },
+    ]
+    const DISAMBIG_EN_SETS = [
+      { id: 'pl2', name: 'Rising Rivals' },
+      { id: 'sv10', name: 'Destined Rivals' },
+    ]
+
+    it('resolves "Rivali Predestinati" to Destined Rivals only, never Chaos Rising', async () => {
+      stubApis({
+        groups: DISAMBIG_GROUPS,
+        productsByGroup: DISAMBIG_PRODUCTS,
+        pricesByGroup: DISAMBIG_PRICES,
+        itSets: DISAMBIG_IT_SETS,
+        enSets: DISAMBIG_EN_SETS,
+      })
+      const out = await searchSealedProducts('Rivali Predestinati')
+      expect(out.length).toBeGreaterThan(0)
+      expect(out.every((r) => r.name.startsWith('Destined Rivals'))).toBe(true)
+      expect(out.some((r) => r.name.includes('Chaos Rising'))).toBe(false)
+      expect(out.some((r) => r.externalId.startsWith('tcgcsv:300:'))).toBe(false)
+    })
+
+    it('resolves "Collezione Allenatore Elite Rivali Predestinati" to the Destined Rivals ETB only', async () => {
+      stubApis({
+        groups: DISAMBIG_GROUPS,
+        productsByGroup: DISAMBIG_PRODUCTS,
+        pricesByGroup: DISAMBIG_PRICES,
+        itSets: DISAMBIG_IT_SETS,
+        enSets: DISAMBIG_EN_SETS,
+      })
+      const out = await searchSealedProducts('Collezione Allenatore Elite Rivali Predestinati')
+      expect(out.map((r) => r.name)).toContain('Destined Rivals Elite Trainer Box')
+      expect(out.some((r) => r.name.includes('Chaos Rising'))).toBe(false)
+      expect(out.every((r) => r.name === 'Destined Rivals Elite Trainer Box')).toBe(true)
+    })
+  })
 })
