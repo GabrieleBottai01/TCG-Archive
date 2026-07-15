@@ -118,6 +118,24 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  // `name` lives inside the collapsed <details>; a failed validation has to open
+  // it, otherwise the error banner points at a field the user cannot see.
+  const detailsRef = useRef<HTMLDetailsElement>(null)
+
+  // Guards the price fetch against a stale response overwriting a newer pick.
+  // Every pick/clear bumps the id and aborts the previous request; a response
+  // may only touch the form (and the spinner) while its id is still current.
+  const priceReqIdRef = useRef(0)
+  const priceAbortRef = useRef<AbortController | null>(null)
+
+  // Invalidates any in-flight price fetch and returns the id of the new request
+  // slot. Callers that are not starting a fetch can ignore the return value.
+  const invalidatePriceFetch = () => {
+    priceReqIdRef.current += 1
+    priceAbortRef.current?.abort()
+    priceAbortRef.current = null
+    return priceReqIdRef.current
+  }
 
   // Accessibility: close on Escape, move focus into the dialog on open,
   // and lock background scroll while the modal is mounted.
@@ -135,6 +153,15 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     }
   }, [onClose])
 
+  // Drop any in-flight price fetch when the modal unmounts.
+  useEffect(() => {
+    return () => {
+      priceReqIdRef.current += 1
+      priceAbortRef.current?.abort()
+      priceAbortRef.current = null
+    }
+  }, [])
+
   const set = (field: keyof FormState, value: string | number) =>
     setForm((prev) => ({ ...prev, [field]: value }))
 
@@ -146,6 +173,10 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
   // Switching type invalidates any pick: the external id, the image and the
   // auto price all belong to the previous type's catalogue.
   const clearPick = (nextType?: string) => {
+    // A price fetch still in flight belongs to the pick being dropped: invalidate
+    // it so its response cannot land on whatever is picked next.
+    invalidatePriceFetch()
+    setPriceLoading(false)
     setForm((prev) => ({
       ...prev,
       itemType: nextType ?? prev.itemType,
@@ -154,6 +185,9 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       cardNumber: '',
       externalId: '',
       imageUrl: '',
+      // The value belongs to the pick being dropped: carrying it over would
+      // silently price the next item at the previous one's figure.
+      marketValue: 0,
       marketValueSource: 'MANUAL',
     }))
     setPicked(false)
@@ -175,11 +209,22 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       itemType: checked ? 'GRADED' : 'RAW',
       marketValueSource: 'MANUAL',
     }))
-    if (checked) setPriceDate(null)
+    if (checked) {
+      // Drop the auto price entirely, not just the source: leaving it set would
+      // offer `f_backToAuto` on a slab that must stay MANUAL. A price fetch for
+      // the raw card may still be in flight — it must not land either.
+      invalidatePriceFetch()
+      setPriceLoading(false)
+      setAutoPrice(null)
+      setPriceDate(null)
+    }
   }
 
   const handlePick = async (r: CardSearchResult) => {
     const graded = isGraded
+    // Supersede any pick still fetching: from here on only this request's
+    // response may touch the form.
+    const reqId = invalidatePriceFetch()
     setForm((prev) => ({
       ...prev,
       name: r.name,
@@ -187,6 +232,9 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       cardNumber: r.cardNumber,
       imageUrl: r.imageUrl ?? '',
       externalId: r.externalId,
+      // The previous pick's price must not survive into this one; the fetch
+      // below fills it in if Cardmarket has a figure.
+      marketValue: 0,
       // Stays MANUAL until (and unless) /api/cards/price returns a price.
       marketValueSource: 'MANUAL',
     }))
@@ -195,28 +243,48 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     setPriceDate(null)
     // A graded slab keeps the value MANUAL: its real value diverges from the
     // raw card price, so don't fetch one.
-    if (graded) return
+    if (graded) {
+      setPriceLoading(false)
+      return
+    }
 
     // TCGdex's card list endpoint carries no prices — the Cardmarket price is
     // fetched for the picked card only.
+    const controller = new AbortController()
+    priceAbortRef.current = controller
     setPriceLoading(true)
     try {
-      const res = await fetch(`/api/cards/price?id=${encodeURIComponent(r.externalId)}`)
+      const res = await fetch(`/api/cards/price?id=${encodeURIComponent(r.externalId)}`, {
+        signal: controller.signal,
+      })
       if (!res.ok) return
       const data = (await res.json()) as { priceEur: number | null }
       const price = data.priceEur
       if (price == null) return
+      // A newer pick (or a clear) landed while this was in flight: its form
+      // state wins, so drop this response rather than overwrite the price.
+      if (priceReqIdRef.current !== reqId) return
       setForm((prev) => ({ ...prev, marketValue: price, marketValueSource: 'AUTO' }))
       setAutoPrice(price)
       setPriceDate(new Date().toISOString())
     } catch {
-      // Leave the value MANUAL — the user can type one.
+      // Aborted, or the network failed. Either way leave the value MANUAL —
+      // the user can type one.
     } finally {
-      setPriceLoading(false)
+      // Only the live request owns the spinner: a superseded one clearing it
+      // would hide a fetch that is still running.
+      if (priceReqIdRef.current === reqId) {
+        setPriceLoading(false)
+        priceAbortRef.current = null
+      }
     }
   }
 
   const handlePickSealed = (r: SealedSearchResult) => {
+    // No fetch of its own, but a card pick may still be in flight if the type
+    // was switched — it must not land on this product.
+    invalidatePriceFetch()
+    setPriceLoading(false)
     // The sealed search already carries a working price and external id: keep
     // both so the item is auto-priced and the refresh can re-price it later.
     setForm((prev) => ({
@@ -224,7 +292,9 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       name: r.name,
       imageUrl: r.imageUrl ?? '',
       externalId: r.externalId,
-      marketValue: r.priceEur ?? prev.marketValue,
+      // A product with no price starts at 0 and stays MANUAL: inheriting the
+      // previous pick's figure would price this item at another one's value.
+      marketValue: r.priceEur ?? 0,
       marketValueSource: r.priceEur != null ? 'AUTO' : 'MANUAL',
     }))
     setPicked(true)
@@ -241,6 +311,11 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     // refuse to submit with no visible reason. Validate it here instead.
     if (!form.name.trim()) {
       setError(t('m_validationErr'))
+      // The banner renders at the top of a scrollable panel while `name` sits
+      // inside the collapsed section: open it and focus the field, or Salva
+      // just appears to do nothing.
+      if (detailsRef.current) detailsRef.current.open = true
+      panelRef.current?.querySelector<HTMLInputElement>('#modal-name')?.focus()
       return
     }
 
@@ -334,13 +409,15 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       {priceLoading && <p className="text-xs text-muted">…</p>}
       {!priceLoading && showCardmarket && (
         <p className="text-xs text-success">
-          {t('f_priceCardmarket')} {formattedPriceDate ?? ''}
+          {t('f_priceCardmarket')}
+          {formattedPriceDate ? ` ${formattedPriceDate}` : ''}
         </p>
       )}
       {!priceLoading && showEstimate && (
         <>
           <p className="text-xs text-warning">
-            {t('f_priceEstimateUsa')} {formattedPriceDate ?? ''}
+            {t('f_priceEstimateUsa')}
+            {formattedPriceDate ? ` ${formattedPriceDate}` : ''}
           </p>
           {/* tcgcsv lists English sealed products only — an IT/JA item is priced
               off the English product. The user accepted the estimate on the
@@ -513,7 +590,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           </div>
 
           {/* Everything the search normally fills in, or that rarely needs touching. */}
-          <details className="rounded-lg border border-border">
+          <details ref={detailsRef} className="rounded-lg border border-border">
             <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-fg">
               {t('f_moreDetails')}
             </summary>
