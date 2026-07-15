@@ -466,7 +466,7 @@ git commit -m "feat(pricing): TCGdex provider with Italian card search and Cardm
 - Consumes: `fetchTcgdexPriceEur`, `searchTcgdexCards` (Task 3).
 - Produces: `TcgdexProvider` implementing the existing `PriceProvider` interface (`supports(i)` / `fetchPrice(i)`); `pickProvider` returns `Tcgcsv | Tcgdex | Manual`. `searchPokemonCards(q)` in `search.ts` now delegates to TCGdex and keeps returning `CardSearchResult[]` so `CardSearch.tsx` keeps compiling.
 
-`CardSearchResult` keeps its shape but `lowPrice` becomes **always `null`** from search (the TCGdex list has no prices — the price is fetched on pick in Task 6). Do not remove the field; Task 6 replaces its use.
+`CardSearchResult` keeps its shape for now, but `lowPrice` becomes **always `null`** (the TCGdex list has no prices — the price is fetched on pick in Task 6). Keeping it here is a deliberate one-task bridge so `CardSearch.tsx` still compiles; **Task 8 Step 3b deletes the field and its render**. Do not leave a permanently-null field behind at the end of the plan.
 
 - [ ] **Step 1: Read the existing interface**
 
@@ -979,6 +979,36 @@ The payload construction (`autoEligible`, explicit `null`s for cleared optionals
 - [ ] **Step 2: Rewrite the component per the behaviour above.**
 
 - [ ] **Step 3: Update `SealedSearch.tsx`** to show `priceEur` next to each result (formatted with `formatEUR` from `@/lib/format`) and, when every result has `matchLevel === 'fuzzy'`, render `t('f_fuzzyNote')` above the list. Replace the current `t('m_noResults')` empty state with `t('f_noResultsHint')`.
+
+- [ ] **Step 3b: Drop the now-dead `lowPrice` from the card search path**
+
+`CardSearch.tsx:80` currently renders `r.lowPrice` next to each result. TCGdex's list
+endpoint has no prices, so after Task 4 that value is **always `null`** and the price
+would silently vanish from the card results. The price now arrives on pick via
+`/api/cards/price`, so remove the field rather than leave a permanently-null one:
+
+1. In `src/lib/pricing/search.ts` remove `lowPrice` from `CardSearchResult` and stop
+   mapping it:
+
+```ts
+import { searchTcgdexCards } from './tcgdex'
+
+export type CardSearchResult = {
+  externalId: string; name: string; setName: string
+  cardNumber: string; imageUrl: string | null
+}
+
+// TCGdex's list endpoint carries no prices — the price is fetched on pick
+// via /api/cards/price.
+export async function searchPokemonCards(q: string): Promise<CardSearchResult[]> {
+  return searchTcgdexCards(q)
+}
+```
+
+2. In `src/components/CardSearch.tsx` remove `lowPrice` from the local
+   `CardSearchResult` type (line ~13) and delete the price fragment at line ~80
+   (`{r.lowPrice != null ? ` · ${formatEUR(r.lowPrice)}` : ''}`). Remove the
+   `formatEUR` import if nothing else in the file uses it.
 
 - [ ] **Step 4: Verify**
 
