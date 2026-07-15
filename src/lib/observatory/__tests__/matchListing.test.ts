@@ -95,8 +95,19 @@ describe('adversarial titles — the ones most likely to be wrong in the wild', 
     expect(r.ok).toBe(false)
     expect(r.reason).toContain('ambiguous')
   })
-  it('handles accents and Pokémon Center via the shared normaliser', () => {
-    expect(matchListing('Pokémon Center Destined Rivals Élite Trainer Box ENG', etbEn, 'EBAY_IT').ok).toBe(false)
+  // These two were one test that asserted only `ok === false` on a title carrying
+  // BOTH triggers. Exclusions short-circuit, so it passed no matter what the
+  // normaliser did with the accents — it could not fail on the thing it was named
+  // for. Split so the accent half has to actually ACCEPT.
+  it('sees through accents via the shared normaliser: "Élite" is still elite', () => {
+    const r = matchListing('Destined Rivals Élite Trainer Box ENG', etbEn, 'EBAY_IT')
+    expect(r.ok).toBe(true)
+    expect(r.lang).toBe('EN')
+  })
+  it('rejects the Pokémon Center exclusive even when written with its accent', () => {
+    const r = matchListing('Pokémon Center Destined Rivals Elite Trainer Box ENG', etbEn, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('exclusive')
   })
 
   // Found by running realistic titles through the matcher: all three of these
@@ -135,6 +146,159 @@ describe('adversarial titles — the ones most likely to be wrong in the wild', 
   it('does not mistake the Italian word "scatola" for a second product', () => {
     const r = matchListing('Pokemon Destined Rivals Elite Trainer Box ITA scatola sigillata', etbIt, 'EBAY_IT')
     expect(r.ok).toBe(true)
+  })
+})
+
+// Every title below was a FALSE ACCEPT found by running adversarial titles
+// through the matcher. Each asserts the rejection *and* the rule that fired,
+// because a rejection for the wrong reason is a rule that is not really there.
+describe('multi-unit lots — "3x" is only one of the ways N gets written', () => {
+  // This one scored 0.97 — the highest confidence in the whole review — because
+  // a lot has a short, tidy title. See the note on `confidence` in matchListing.
+  it('rejects a bare leading count ("3 Elite Trainer Box ...")', () => {
+    const r = matchListing('3 Elite Trainer Box Destined Rivals ITA', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('multi-unit')
+  })
+  it('rejects a bare leading count before the brand ("2 Pokemon ...")', () => {
+    const r = matchListing('2 Pokemon Destined Rivals Elite Trainer Box ITA', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('multi-unit')
+  })
+  it('rejects "coppia"', () => {
+    const r = matchListing('Coppia Elite Trainer Box Destined Rivals ITA sigillate', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('multi-unit')
+  })
+  it('rejects "set di 2"', () => {
+    const r = matchListing('Elite Trainer Box Destined Rivals ITA set di 2', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('multi-unit')
+  })
+  it('rejects "doppia confezione"', () => {
+    const r = matchListing('Elite Trainer Box Destined Rivals ITA doppia confezione sigillata', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('multi-unit')
+  })
+  it('rejects a count bound to a quantity noun ("3 pezzi")', () => {
+    const r = matchListing('Elite Trainer Box Destined Rivals ITA 3 pezzi', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('multi-unit')
+  })
+  it('rejects the German quantity noun ("2 Stück")', () => {
+    const r = matchListing('Elite Trainer Box Destined Rivals Englisch 2 Stück', etbEn, 'EBAY_DE')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('multi-unit')
+  })
+
+  // ...and the numbers that are NOT quantities. A set name, a year and a card
+  // count all live in titles; reading them as lot sizes would delete honest
+  // listings for nothing.
+  it('does not read a trailing set number as a quantity ("... Elite Trainer Box 151")', () => {
+    expect(matchListing('Destined Rivals Elite Trainer Box 151', etbIt, 'EBAY_IT').ok).toBe(true)
+  })
+  it('does not read a leading set number as a quantity', () => {
+    expect(matchListing('151 Destined Rivals Elite Trainer Box ITA', etbIt, 'EBAY_IT').ok).toBe(true)
+  })
+  it('still accepts "1x", which is one unit', () => {
+    expect(matchListing('Elite Trainer Box Destined Rivals ITA 1x sigillata', etbIt, 'EBAY_IT').ok).toBe(true)
+  })
+})
+
+describe('the listing must be a real, sealed, in-hand unit for sale', () => {
+  it('rejects an Italian wanted ad ("CERCO") — a lowball offer that drags the median DOWN', () => {
+    const r = matchListing('CERCO Elite Trainer Box Destined Rivals ITA sigillata', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('wanted')
+  })
+  it('rejects an Italian wanted ad ("COMPRO")', () => {
+    const r = matchListing('COMPRO Elite Trainer Box Destined Rivals ITA', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('wanted')
+  })
+  it('rejects a German wanted ad ("Suche")', () => {
+    const r = matchListing('Suche Elite Trainer Box Destined Rivals Englisch', etbEn, 'EBAY_DE')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('wanted')
+  })
+  it('rejects a used unit', () => {
+    const r = matchListing('Elite Trainer Box Destined Rivals ITA usata ottime condizioni', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('used')
+  })
+  it('rejects an explicitly unsealed unit ("senza sigilli")', () => {
+    const r = matchListing('Elite Trainer Box Destined Rivals ITA senza sigilli', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('used')
+  })
+  it('rejects a postage-only listing, whose price is the shipping', () => {
+    const r = matchListing('Elite Trainer Box Destined Rivals ITA - SOLO SPEDIZIONE', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('postage')
+  })
+  it('rejects a deposit — the preorder trap wearing the word "acconto"', () => {
+    const r = matchListing('Elite Trainer Box Destined Rivals ITA acconto prenota ora', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('preorder')
+  })
+  it('rejects the "oe" transliteration of geöffnet', () => {
+    const r = matchListing('Pokemon Destined Rivals Elite Trainer Box Englisch geoeffnet', etbEn, 'EBAY_DE')
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('opened')
+  })
+
+  // The negations are load-bearing: "mai aperta" / "nicht geöffnet" is how an
+  // Italian or German seller says SEALED. A rule that eats them deletes most of
+  // the honest sample, so each one is pinned individually.
+  it('still accepts "mai aperta"', () => {
+    expect(matchListing('Elite Trainer Box Destined Rivals ITA MAI APERTA', etbIt, 'EBAY_IT').ok).toBe(true)
+  })
+  it('still accepts "non aperta"', () => {
+    expect(matchListing('Elite Trainer Box Destined Rivals ITA non aperta sigillata', etbIt, 'EBAY_IT').ok).toBe(true)
+  })
+  it('still accepts "mai usata"', () => {
+    expect(matchListing('Elite Trainer Box Destined Rivals ITA mai usata sigillata', etbIt, 'EBAY_IT').ok).toBe(true)
+  })
+  it('still accepts "nicht geöffnet" and its "oe" transliteration', () => {
+    expect(matchListing('Elite Trainer Box Destined Rivals Englisch nicht geöffnet', etbEn, 'EBAY_DE').ok).toBe(true)
+    expect(matchListing('Elite Trainer Box Destined Rivals Englisch nicht geoeffnet', etbEn, 'EBAY_DE').ok).toBe(true)
+  })
+  it('still accepts "ungeöffnet" and "ungeoeffnet", which need no negator', () => {
+    expect(matchListing('Elite Trainer Box Destined Rivals Englisch OVP ungeöffnet', etbEn, 'EBAY_DE').ok).toBe(true)
+    expect(matchListing('Elite Trainer Box Destined Rivals Englisch OVP ungeoeffnet', etbEn, 'EBAY_DE').ok).toBe(true)
+  })
+})
+
+describe('a second unit of the SAME type is still a lot', () => {
+  // A set-membership test filtered "elite trainer box" out as "the product
+  // already has that type", so ETB + ETB read as one ETB. Occurrences, not
+  // membership.
+  it('rejects ETB + a second ETB from another set', () => {
+    const r = matchListing(
+      'Pokemon Destined Rivals Elite Trainer Box ITA + Elite Trainer Box Pokemon 151 ITA',
+      etbIt,
+      'EBAY_IT'
+    )
+    expect(r.ok).toBe(false)
+    expect(r.reason).toContain('bundle')
+  })
+})
+
+describe('shipping origin is not product language', () => {
+  // False rejects, so safe — but `reason` said "the title claims IT and DE",
+  // which is confidently wrong, and `reason` is the debugging surface.
+  it('accepts an Italian box shipped from Germany', () => {
+    const r = matchListing('Elite Trainer Box Destined Rivals ITA spedizione da Germania', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(true)
+    expect(r.lang).toBe('IT')
+  })
+  it('does not read the preposition in "de luxe" as a German marker', () => {
+    expect(matchListing('Elite Trainer Box Destined Rivals ITA edizione de luxe', etbIt, 'EBAY_IT').ok).toBe(true)
+  })
+  it('still rejects a genuinely German product on the Italian site', () => {
+    const r = matchListing('Elite Trainer Box Destined Rivals TEDESCO sigillata', etbIt, 'EBAY_IT')
+    expect(r.ok).toBe(false)
+    expect(r.lang).toBe('DE')
   })
 })
 
