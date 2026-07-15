@@ -91,10 +91,22 @@ Il riferimento è **per prodotto E per lingua**: una ETB italiana e una inglese 
 
 Il calo di quantità è il fatto che rende superflua la Marketplace Insights API (a rilascio limitato): è un prezzo di vendita reale, ottenuto gratis dalla sola Browse API.
 
-`strength`:
-- `STRONG` → ≥3 vendite confermate o rapide negli ultimi 90 giorni
-- `WEAK` → solo prezzi richiesti, o campione < 3
-- `NONE` → nessun dato utile
+### Cosa si calcola su cosa (il grezzo non basta)
+
+Le osservazioni si potano a 30 giorni, quindi **niente che guardi più indietro può leggerle**. La distinzione:
+
+- **`PriceReference` di oggi** — calcolata dalle osservazioni vive (≤30gg): `medianEur`, `sampleSize`, e le vendite **rilevate oggi** (`confirmedSales`, `quickSales`).
+- **Tutto ciò che guarda più indietro** legge **solo lo storico permanente di `PriceReference`**, mai il grezzo.
+
+Da cui:
+
+- `strength` di oggi = f(vendite sommate sulle ultime **90 righe di `PriceReference`**, non sulle osservazioni):
+  - `STRONG` → `SUM(confirmedSales + quickSales)` ≥ 3 negli ultimi 90 giorni **e** `sampleSize` odierno ≥ 3
+  - `WEAK` → ci sono osservazioni ma nessuna vendita, o campione < 3
+  - `NONE` → nessuna osservazione valida oggi
+- **Il valore mostrato** non è la mediana del solo giorno (un giorno con 2 annunci oscillerebbe): è la **mediana delle `medianEur` giornaliere degli ultimi 14 giorni** con `sampleSize > 0`. Smorza il rumore e sopravvive ai giorni vuoti.
+
+Conseguenza voluta: nei primi 30 giorni il sistema funziona già; dopo, continua a migliorare pur avendo dimenticato gli annunci.
 
 ### Il job giornaliero
 
