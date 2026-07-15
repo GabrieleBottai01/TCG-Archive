@@ -69,6 +69,20 @@ export async function searchSealedProducts(q: string): Promise<SealedSearchResul
     }
   }
 
+  // tcgcsv has no product-name index and no bulk product endpoint (verified:
+  // /tcgplayer/3/products -> 404), so we can only fetch a handful of the ~217
+  // groups per search. Matching therefore happens on group (set) names, not
+  // product names: a query resolves to a set, we fetch that set's group(s),
+  // then filter products within them (see the exact/fuzzy check below). A
+  // bare product/Pokémon name (e.g. "Zacian") only matches when that product
+  // line happens to have its own group (e.g. "First Partner Pack", groupId
+  // 2776) — there is no way to search across all products without indexing
+  // every group on every request. Do not "fix" this by adding a full scan of
+  // all groups: with only 4 groups fetched per search (see .slice(0, 4)
+  // below), a full scan just returns whatever groups happen to be listed
+  // first by tcgcsv (publish-date descending), i.e. the newest sets,
+  // regardless of the query.
+
   // Level 3: substring match of any term against the group name.
   const chosen = new Map<number, TcgGroup>()
   for (const g of groups) {
@@ -83,16 +97,6 @@ export async function searchSealedProducts(q: string): Promise<SealedSearchResul
       const gn = norm(g.name)
       if (tokens.some((t) => gn.includes(t))) chosen.set(g.groupId, g)
     }
-  }
-
-  // Level 5: still nothing. Some sealed products (e.g. standalone promo packs
-  // like "First Partner Pack") don't share any word with their set's name, so
-  // group-name matching can never find them. Fall back to a bounded scan of
-  // all groups — the per-product exact/fuzzy name match below remains the
-  // authoritative filter, so this cannot pad the output with unrelated
-  // products, it only widens which groups get fetched.
-  if (chosen.size === 0) {
-    for (const g of groups) chosen.set(g.groupId, g)
   }
 
   // Products are English; match them against the translated query too.
