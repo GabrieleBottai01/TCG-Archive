@@ -101,6 +101,27 @@ per qualità del match *prima* dello slice.
 ⚠️ Il task-review formale del Task 5 non è stato eseguito (3 round di fix; ho verificato io il
 comportamento live). La qualità del codice va coperta dal **review finale di branch** — non saltarlo.
 
+## ✅ Da verificare dopo il deploy (quando lo autorizzi)
+
+Nulla di tutto questo è testabile in locale: `.env` usa SQLite mentre l'app usa l'adapter Neon,
+quindi il DB e l'auth funzionano solo in produzione.
+
+1. **Sigillati (il caso principale)**: cerca `Primi compagni d'avventura` → devono comparire i
+   "First Partner Pack" con prezzo. Verificato live contro tcgcsv: 9 risultati.
+2. **Set + tipo prodotto**: cerca `Collezione Allenatore Élite Rivali Predestinati` → deve uscire
+   "Destined Rivals Elite Trainer Box" (~150 EUR), senza prodotti di altri set.
+3. **Prezzo auto sigillati**: seleziona un sigillato → il valore si compila da solo ed è etichettato
+   in ambra come *stima TCGplayer USA*. È il bug storico (`handlePickSealed` scartava il prezzo).
+4. **Avviso lingua**: metti lingua IT o JA su un sigillato → deve comparire l'avviso che la stima si
+   basa sul prodotto inglese.
+5. **Carte in italiano**: cerca `Avventura` nel form carta → nomi italiani; selezionandone una il
+   prezzo si compila etichettato *Cardmarket* (verde).
+6. **Carte prima senza prezzo**: prova una carta dell'era Mega Evolution o Prismatic Evolutions —
+   su pokemontcg.io non avevano **alcun** prezzo (744 carte), TCGdex le prezza.
+7. **Form snello**: aggiungendo un articolo devono bastare quantità, prezzo pagato e lingua.
+8. **Refresh prezzi**: il bottone sulla dashboard deve continuare a funzionare sugli item esistenti.
+9. **Regressione auth**: login, registrazione e logout ancora funzionanti.
+
 ## Debito segnalato
 
 - **`AGENTS.md` punta a un percorso inesistente**: dice di leggere `node_modules/next/dist/docs/`

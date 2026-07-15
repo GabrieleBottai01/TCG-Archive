@@ -3,7 +3,9 @@
 Applicazione web per gestire la propria collezione di carte collezionabili (TCG), prodotti
 sigillati e carte gradate. Per ogni articolo si registrano quantità, prezzo d'acquisto e
 condizione; per le carte **Pokémon raw** il valore di mercato viene recuperato in automatico
-da [pokemontcg.io](https://pokemontcg.io) (prezzo minimo Cardmarket in EUR). L'app mostra la
+da [TCGdex](https://tcgdex.dev) (prezzo minimo Cardmarket in EUR), e per i **prodotti sigillati**
+da [tcgcsv](https://tcgcsv.com) (prezzo TCGplayer USA convertito in EUR: una stima, etichettata
+come tale nell'interfaccia). La ricerca funziona in italiano. L'app mostra la
 differenza tra costo e valore per ogni articolo e il **saldo complessivo** della collezione,
 con filtri per analisi personalizzate. UI responsive (desktop, tablet, smartphone).
 
@@ -26,12 +28,14 @@ npm install
 cp .env.example .env
 #   - DATABASE_URL = connection string POOLED di Neon (host con "-pooler")
 #   - DIRECT_URL   = connection string DIRECT di Neon (senza "-pooler"), usata dalla CLI Prisma
-#   - POKEMONTCGIO_API_KEY è opzionale: senza chiave l'API pokemontcg.io
-#     funziona con limiti di rate più bassi. Ottienine una gratis su
-#     https://dev.pokemontcg.io per limiti più alti.
+#   - AUTH_SECRET   = genera con `openssl rand -base64 32`
+#   - AUTH_URL      = http://localhost:3000 in locale
+#   - AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET = credenziali OAuth (opzionali:
+#     senza di esse resta attivo il login email+password)
+#   Le API dei prezzi (TCGdex, tcgcsv) non richiedono alcuna chiave.
 
-# 3. Crea lo schema sul DB ed esegui il seed dell'utente di default
-npm run db:setup        # = prisma db push + prisma db seed
+# 3. Crea lo schema sul DB
+npm run db:push         # = prisma db push
 
 # 4. Avvia in sviluppo
 npm run dev             # http://localhost:3000
@@ -48,8 +52,8 @@ L'app è pronta per Netlify (Next.js runtime + Neon Postgres). Vedi `netlify.tom
 
 1. Crea un progetto su **Neon** e copia le due connection string (pooled → `DATABASE_URL`, direct → `DIRECT_URL`).
 2. Su **Netlify**: *Add new site → Import from GitHub* e seleziona `GabrieleBottai01/TCG-Archive`.
-3. In *Site settings → Environment variables* imposta `DATABASE_URL`, `DIRECT_URL` e (opz.) `POKEMONTCGIO_API_KEY`.
-4. Lancia il deploy: il build command (`prisma db push && prisma db seed && next build`) crea lo schema, esegue il seed e builda. Ogni push su `main` ridistribuisce automaticamente.
+3. In *Site settings → Environment variables* imposta `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `AUTH_URL` (il dominio di produzione) e, per il login Google, `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`.
+4. Lancia il deploy: il build command (`prisma db push && next build`) crea lo schema e builda. Ogni push su `main` ridistribuisce automaticamente.
 
 ## Comandi utili
 
@@ -81,7 +85,19 @@ Documentazione di design e piano: `docs/superpowers/`.
 
 ## Note sui prezzi
 
-Cardmarket non offre un'API pubblica aperta. I prezzi automatici provengono da pokemontcg.io
-(`cardmarket.lowPrice`), disponibile solo per le carte Pokémon. Per carte gradate, prodotti
-sealed e altri giochi il valore di mercato si inserisce manualmente. La condizione (Poor→Mint)
-è un attributo informativo della collezione e non altera il valore calcolato.
+Cardmarket non offre un'API pubblica aperta.
+
+- **Carte Pokémon raw** → [TCGdex](https://tcgdex.dev) (`pricing.cardmarket.low`): prezzo Cardmarket
+  in **EUR**, mercato europeo. Nessuna API key.
+- **Prodotti sigillati** → [tcgcsv](https://tcgcsv.com), che ripubblica i prezzi TCGplayer in **USD**,
+  convertiti in EUR con il cambio BCE del giorno ([Frankfurter](https://frankfurter.dev), cache 24h).
+  È il **mercato USA**, quindi una *stima*: l'interfaccia la etichetta come tale. Il catalogo tcgcsv
+  contiene solo prodotti in inglese, perciò per un sigillato italiano o giapponese il prezzo mostrato
+  è quello della versione inglese — anche questo è dichiarato nell'interfaccia.
+- **Carte gradate** → sempre manuali: il valore di uno slab diverge da quello della carta raw.
+
+La ricerca dei sigillati funziona per **nome del set + tipo prodotto** (es. "Collezione Allenatore
+Élite Rivali Predestinati"), tradotti dall'italiano tramite un glossario curato: tcgcsv non ha un
+indice per nome prodotto, quindi cercare un semplice nome di Pokémon non è supportato.
+
+La condizione (Poor→Mint) è un attributo informativo della collezione e non altera il valore calcolato.
