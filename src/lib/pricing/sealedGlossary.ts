@@ -62,6 +62,22 @@ const GLOSSARY_REGEX = new RegExp(
   'g'
 )
 
+// Unique English product-type phrases (the glossary's value set). Exposed so
+// sealed.ts can honestly derive "which product-type terms are present in a
+// translated query" from the real vocabulary instead of hardcoding a
+// duplicate list.
+const PRODUCT_TYPES: ReadonlyArray<string> = Array.from(new Set(GLOSSARY.map(([, en]) => en)))
+
+// Longest-phrase-wins, same technique as GLOSSARY_REGEX above (e.g. "elite
+// trainer box" must be tried, and win, before its own substring "box").
+const PRODUCT_TYPE_REGEX = new RegExp(
+  PRODUCT_TYPES.slice()
+    .sort((a, b) => b.length - a.length)
+    .map((en) => `\\b${escapeRegExp(en)}\\b`)
+    .join('|'),
+  'g'
+)
+
 export function normalizeQuery(q: string): string {
   return q
     .normalize('NFD')
@@ -81,6 +97,26 @@ export function translateSealedQuery(q: string): string {
   const normalized = normalizeQuery(q)
   const translated = normalized.replace(GLOSSARY_REGEX, (match) => GLOSSARY_MAP.get(match) ?? match)
   return translated.replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Splits an already-translated (English) query into the product-type
+ * phrase(s) it contains — from the glossary's closed vocabulary of English
+ * values — and the remaining "set hint" text. Sealed names are compositional
+ * — "[Set name] + [Product type]" — so a search must resolve tcgcsv groups
+ * from the set hint, not from the whole query (a product type like "trainer
+ * box" is never itself a set name).
+ */
+export function extractProductType(translated: string): { productTypes: string[]; setHint: string } {
+  const productTypes: string[] = []
+  const setHint = translated
+    .replace(PRODUCT_TYPE_REGEX, (match) => {
+      productTypes.push(match)
+      return ' '
+    })
+    .replace(/\s+/g, ' ')
+    .trim()
+  return { productTypes, setHint }
 }
 
 export function queryTokens(q: string): string[] {

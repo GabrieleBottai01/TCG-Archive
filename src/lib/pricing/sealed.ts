@@ -4,7 +4,7 @@
 // in Italian too. Prices are TCGplayer market estimates converted to EUR.
 
 import { getUsdToEurRate } from '@/lib/fx'
-import { translateSealedQuery, normalizeQuery, queryTokens } from './sealedGlossary'
+import { translateSealedQuery, normalizeQuery, queryTokens, extractProductType } from './sealedGlossary'
 
 const TCGCSV = 'https://tcgcsv.com/tcgplayer/3'
 const UA: Record<string, string> = { 'User-Agent': 'TCGArchive/1.0' }
@@ -19,6 +19,12 @@ type SetName = { id: string; it: string; en: string }
 type StaticData = { groups: TcgGroup[]; sets: SetName[]; ts: number }
 
 let cache: StaticData | null = null
+
+// Test-only: loadStatic() caches groups/sets for TTL_MS, which would leak
+// fixtures across tests that use different group/set data in the same file.
+export function __resetSealedStaticCache(): void {
+  cache = null
+}
 
 async function getJson<T>(url: string, headers?: Record<string, string>): Promise<T> {
   const res = await fetch(url, headers ? { headers } : undefined)
@@ -59,15 +65,14 @@ export async function searchSealedProducts(q: string): Promise<SealedSearchResul
   const { groups, sets } = await loadStatic()
   const rate = await getUsdToEurRate()
 
-  // Level 1+2: translate the query IT->EN, then resolve Italian set names to English.
+  // Sealed names are compositional: "[Set name] + [Product type]". Split the
+  // translated (English) query into the product-type phrase(s) it contains
+  // (the glossary's closed vocabulary — see sealedGlossary.extractProductType)
+  // and the remaining "set hint" text, and resolve groups from the set hint,
+  // not the whole query. A product type (e.g. "trainer box") is never itself
+  // a set name, so it must never be matched against group names.
   const translated = translateSealedQuery(raw)
-  const plain = normalizeQuery(raw)
-  const terms = new Set([translated, plain])
-  for (const s of sets) {
-    if ((s.it && normalizeQuery(s.it).includes(plain)) || (s.en && normalizeQuery(s.en).includes(plain))) {
-      if (s.en) terms.add(normalizeQuery(s.en))
-    }
-  }
+  const { productTypes, setHint } = extractProductType(translated)
 
   // tcgcsv has no product-name index and no bulk product endpoint (verified:
   // /tcgplayer/3/products -> 404), so we can only fetch a handful of the ~217
@@ -83,23 +88,44 @@ export async function searchSealedProducts(q: string): Promise<SealedSearchResul
   // first by tcgcsv (publish-date descending), i.e. the newest sets,
   // regardless of the query.
 
-  // Level 3: substring match of any term against the group name.
-  const chosen = new Map<number, TcgGroup>()
-  for (const g of groups) {
-    const gn = norm(g.name)
-    for (const t of terms) if (t && gn.includes(t)) { chosen.set(g.groupId, g); break }
+  const setHintTokens = queryTokens(setHint)
+
+  // 4a: resolve the set hint against TCGdex's IT/EN set names. Checking the
+  // Italian name is what lets an Italian set-hint token (e.g. "rivali")
+  // reach the English set name tcgcsv actually uses ("Destined Rivals"),
+  // since TCGplayer/tcgcsv is English-only. Direction matters: a set-hint
+  // token must appear IN the (longer) set name, not the other way round.
+  const resolvedSetNames = new Set<string>()
+  for (const s of sets) {
+    const it = s.it ? normalizeQuery(s.it) : ''
+    const en = s.en ? normalizeQuery(s.en) : ''
+    const matched = (it !== '' && setHintTokens.some((t) => it.includes(t))) || (en !== '' && setHintTokens.some((t) => en.includes(t)))
+    if (matched && s.en) resolvedSetNames.add(normalizeQuery(s.en))
   }
 
-  // Level 4: token overlap on group names when nothing matched.
-  const tokens = queryTokens(translated)
-  if (chosen.size === 0 && tokens.length > 0) {
+  // 4b: match the resolved English set name(s) — or, if TCGdex had nothing,
+  // the raw set-hint tokens — against tcgcsv group names, same token rule.
+  const groupHintTokens = resolvedSetNames.size > 0 ? [...resolvedSetNames].flatMap((n) => queryTokens(n)) : setHintTokens
+
+  const chosen = new Map<number, TcgGroup>()
+  if (groupHintTokens.length > 0) {
     for (const g of groups) {
       const gn = norm(g.name)
-      if (tokens.some((t) => gn.includes(t))) chosen.set(g.groupId, g)
+      if (groupHintTokens.some((t) => gn.includes(t))) chosen.set(g.groupId, g)
     }
   }
 
-  // Products are English; match them against the translated query too.
+  // 4c: the set hint was empty or matched nothing — fall back to matching
+  // the whole translated query against group names. This is what correctly
+  // finds "First Partner Pack", which has its own tcgcsv group (there is no
+  // separate "set" for it — the product line IS the group).
+  const translatedNorm = normalizeQuery(translated)
+  if (chosen.size === 0 && translatedNorm) {
+    for (const g of groups) {
+      if (norm(g.name).includes(translatedNorm)) chosen.set(g.groupId, g)
+    }
+  }
+
   const out: SealedSearchResult[] = []
   for (const g of [...chosen.values()].slice(0, 4)) {
     try {
@@ -115,16 +141,27 @@ export async function searchSealedProducts(q: string): Promise<SealedSearchResul
         const isSealed = !(p.extendedData ?? []).some((e) => e.name === 'Number')
         if (!isSealed || /code card/i.test(p.name)) continue
         const pn = normalizeQuery(p.name)
-        const exact = [...terms].some((t) => t && pn.includes(t))
-        const fuzzy = tokens.some((t) => pn.includes(t))
-        if (!exact && !fuzzy) continue
+
+        // A product type, when present, is a hard filter — a group can hold
+        // several product types (ETB, booster bundle, ...) and only the
+        // requested one is a match. With no product type in the query,
+        // return the whole group's sealed products, ranked exact/fuzzy by
+        // whether the product name contains the whole translated query.
+        let matchLevel: 'exact' | 'fuzzy'
+        if (productTypes.length > 0) {
+          if (!productTypes.some((t) => pn.includes(t))) continue
+          matchLevel = 'exact'
+        } else {
+          matchLevel = translatedNorm !== '' && pn.includes(translatedNorm) ? 'exact' : 'fuzzy'
+        }
+
         const pr = priceBy.get(p.productId)
         out.push({
           name: p.name,
           imageUrl: p.imageUrl ?? null,
           priceEur: toEur(pr?.marketPrice ?? pr?.midPrice, rate),
           externalId: `tcgcsv:${g.groupId}:${p.productId}`,
-          matchLevel: exact ? 'exact' : 'fuzzy',
+          matchLevel,
         })
       }
     } catch {
