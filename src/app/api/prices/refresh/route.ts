@@ -7,7 +7,8 @@ import { requireUserId } from '@/lib/session'
 // page load without hammering the price API. The manual button forces a full refresh.
 const THROTTLE_MS = 6 * 60 * 60 * 1000
 // Fetch several prices at once, but bounded so we don't trip the external
-// providers' rate limits (pokemontcg.io is stricter without an API key).
+// providers' rate limits (TCGdex for cards, tcgcsv for sealed — neither takes
+// an API key, so there is no quota to raise if we get throttled).
 const CONCURRENCY = 5
 
 export async function POST(req: NextRequest) {
