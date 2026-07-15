@@ -21,7 +21,7 @@
 | — | Piano di implementazione | ⏳ prossimo |
 | 1 | `lib/fx.ts` — cambio USD→EUR live + cache 24h | ✅ fatto |
 | 2 | `pricing/tcgdex.ts` — ricerca carte IT + prezzo Cardmarket EUR | ⬜ |
-| 3 | `pricing/sealedGlossary.ts` — glossario IT→EN tipi prodotto | ⬜ |
+| 3 | `pricing/sealedGlossary.ts` — glossario IT→EN tipi prodotto | ✅ fatto |
 | 4 | `pricing/sealed.ts` — glossario + fallback "mostra sempre risultati" | ⬜ |
 | 5 | `pricing/index.ts` — pickProvider: Tcgdex \| Tcgcsv \| Manual | ⬜ |
 | 6 | Rimozione `pokemonTcgIo.ts` | ⬜ |
@@ -56,3 +56,4 @@
 |---|---|---|---|
 | 2026-07-15 | Spec di design + file avanzamento + branch | — | (in corso) |
 | 2026-07-15 | Task 1: `lib/fx.ts` — `getUsdToEurRate()` con cache 24h e fallback `0.877`, endpoint `api.frankfurter.dev` | `npm test -- fx` → 4/4 verdi; `tsc --noEmit` e `npm run lint` puliti | `ea12187` |
+| 2026-07-15 | Task 2 (SDD): `pricing/sealedGlossary.ts` — `normalizeQuery`/`translateSealedQuery`/`queryTokens`, glossario IT→EN sigillati (funzioni pure, non ancora collegate a `sealed.ts`) | `npm test -- sealedGlossary` → 8/8 verdi; `npm test` (suite intera) → 54/54 verdi; `tsc --noEmit` e `npm run lint` puliti | `98b6689` |
