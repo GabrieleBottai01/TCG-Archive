@@ -12,7 +12,8 @@ con filtri per analisi personalizzate. UI responsive (desktop, tablet, smartphon
 ## Stack
 
 - **Next.js** (App Router, TypeScript) — frontend + API routes
-- **Prisma** (v7) su **SQLite** in locale (pronto per Postgres in cloud)
+- **Prisma** (v7) su **Postgres** (Neon, driver HTTP serverless)
+- **Auth.js v5** — login email+password e Google, sessioni JWT
 - **Tailwind CSS** (mobile-first)
 - **Vitest** (unit) + **Playwright** (e2e)
 
@@ -41,10 +42,8 @@ npm run db:push         # = prisma db push
 npm run dev             # http://localhost:3000
 ```
 
-> **Importante:** il seed (`prisma db seed`) è obbligatorio al primo avvio. Tutti gli
-> articoli appartengono all'utente `default-user`; senza il seed il primo inserimento
-> fallisce con un errore di foreign key. L'app è single-user ora, ma lo schema è già
-> predisposto al multiutente.
+> **Nota:** l'app è multiutente. Non esiste alcun seed: il primo account si crea da
+> `/register`, e ogni articolo è scopato sull'utente della sessione.
 
 ## Deploy su Netlify
 
@@ -66,8 +65,6 @@ L'app è pronta per Netlify (Next.js runtime + Neon Postgres). Vedi `netlify.tom
 | `npm run e2e` | Test end-to-end (Playwright, Chromium) |
 | `npm run lint` | ESLint (deve restare senza errori: la build fallisce sugli errori) |
 | `npm run db:push` | Sincronizza lo schema Prisma sul DB |
-| `npm run db:seed` | Seed dell'utente di default |
-| `npm run db:setup` | `db:push` + `db:seed` insieme |
 
 ## Architettura
 
