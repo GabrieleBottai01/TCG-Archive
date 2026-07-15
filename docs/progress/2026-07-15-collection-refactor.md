@@ -78,21 +78,34 @@ npx tsx live-check.ts
 | 2026-07-15 | Task 4: registry → TCGdex, **pokemontcg.io rimosso**, route orfana `/api/sets/search` eliminata | 62/62; tsc/lint puliti; review ✅ | `5995595` |
 | 2026-07-15 | Task 5: `sealed.ts` — cascata + FX live | 15/15 unit verdi **ma live ANCORA sbagliato** (vedi sotto) | `a059521`, `3674009`, `e3caaec` |
 
-## 🔴 Bug aperto — Task 5 (riprendere da qui)
-
-Verifica live al commit `e3caaec`:
+## ✅ Task 5 risolto — verificato live al commit `2bc6d64`
 
 | Query | Risultato | Esito |
 |---|---|---|
-| "Primi compagni d'avventura" | 9 risultati `[exact]`, prezzi corretti | ✅ **bug originale risolto** |
-| "Collezione Allenatore Elite Rivali Predestinati" | trova "Destined Rivals Elite Trainer Box — 150.74 EUR" **ma** contaminato da prodotti "Chaos Rising" | ❌ |
-| "Rivali Predestinati" | 30 risultati tutti di "Chaos Rising", nessuno di Destined Rivals | ❌ |
-| "zzzzqqqq" | 0 risultati, nessun riempimento | ✅ |
+| "Primi compagni d'avventura" | 9 `[exact]`, prezzi corretti | ✅ **bug originale risolto** |
+| "Collezione Allenatore Elite Rivali Predestinati" | 3 `[exact]`, "Destined Rivals Elite Trainer Box — 150.74 EUR" | ✅ |
+| "Rivali Predestinati" | 25 prodotti, tutti Destined Rivals | ✅ |
+| "zzzzqqqq" | 0 risultati | ✅ |
 
-**Da diagnosticare**: perché il set hint "rivali predestinati" seleziona il gruppo "Chaos Rising".
-Sospetto più forte: `.slice(0, 4)` prende i gruppi nell'ordine di inserimento della Map, e tcgcsv
-restituisce `/groups` in ordine di **data di pubblicazione decrescente** → vince il set più recente.
-Altri sospetti: match del set hint troppo permissivo (token corti/substring), o il fallback
-whole-query (step 4c) che scatta quando non dovrebbe.
+**Causa radice** (trovata strumentando contro dati live, non leggendo il codice): il set hint
+`["rivali","predestinati"]` matchava **due** set TCGdex — `pl2` (IT "L'Ascesa dei Rivali" / EN
+"Rising Rivals") e `sv10` (IT "Rivali Predestinati" / EN "Destined Rivals") — perché bastava *un solo*
+token. Poi i nomi inglesi risolti venivano **spezzati in token**, e il token spurio `"rising"`
+selezionava il gruppo **"Chaos Rising"**. Infine `.slice(0,4)`, sull'ordine di pubblicazione
+decrescente di tcgcsv, teneva il set più recente e **scartava quello giusto**.
+
+**Fix**: i set vengono ora **pesati** sul numero di token distinti matchati (si tengono solo i
+migliori), i gruppi si matchano sul nome inglese **come frase intera** e i candidati sono ordinati
+per qualità del match *prima* dello slice.
+
+⚠️ Il task-review formale del Task 5 non è stato eseguito (3 round di fix; ho verificato io il
+comportamento live). La qualità del codice va coperta dal **review finale di branch** — non saltarlo.
+
+## Debito segnalato
+
+- **`AGENTS.md` punta a un percorso inesistente**: dice di leggere `node_modules/next/dist/docs/`
+  prima di scrivere codice, ma quella cartella **non esiste** in Next 16.2.9 (verificato). L'istruzione
+  è ineseguibile e viene silenziosamente ignorata da ogni agent. Da correggere o rimuovere.
+- **README.md** documenta ancora pokemontcg.io e `POKEMONTCGIO_API_KEY` come fonte prezzi: ora è falso.
 | 2026-07-15 | Task 1: `lib/fx.ts` — `getUsdToEurRate()` con cache 24h e fallback `0.877`, endpoint `api.frankfurter.dev` | `npm test -- fx` → 4/4 verdi; `tsc --noEmit` e `npm run lint` puliti | `ea12187` |
 | 2026-07-15 | Task 2 (SDD): `pricing/sealedGlossary.ts` — `normalizeQuery`/`translateSealedQuery`/`queryTokens`, glossario IT→EN sigillati (funzioni pure, non ancora collegate a `sealed.ts`) | `npm test -- sealedGlossary` → 8/8 verdi; `npm test` (suite intera) → 54/54 verdi; `tsc --noEmit` e `npm run lint` puliti | `98b6689` |
