@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { CardSearch, type CardSearchResult } from '@/components/CardSearch'
 import { SealedSearch, type SealedSearchResult } from '@/components/SealedSearch'
-import { useT, CONDITION_LABELS } from '@/lib/i18n'
-import { GAME_LABELS, ITEM_TYPE_LABELS } from '@/lib/labels'
+import { useT, useLang, CONDITION_LABELS } from '@/lib/i18n'
 import { ItemImage } from '@/components/ItemImage'
 import type { PlainItem } from '@/components/CollectionView'
 
@@ -34,6 +33,27 @@ type FormState = {
   notes: string
 }
 
+// The collection is Pokémon-only: the game selector is gone, but `game` stays in
+// the form state and in the payload (the API contract is unchanged).
+const GAME = 'POKEMON'
+
+const LANG_CODES = ['IT', 'EN', 'JA'] as const
+
+// Language used to be a free-text field, so stored values may read "Italiano",
+// "ENG", … Map the well-known spellings onto the new codes; anything else is
+// preserved verbatim and offered as an extra <option> so editing an old item
+// never silently drops its language.
+function normalizeLang(raw: string | null | undefined): string {
+  const v = (raw ?? '').trim()
+  if (!v) return ''
+  const upper = v.toUpperCase()
+  if ((LANG_CODES as readonly string[]).includes(upper)) return upper
+  if (/^(ita|italiano|italian)$/i.test(v)) return 'IT'
+  if (/^(eng|english|inglese)$/i.test(v)) return 'EN'
+  if (/^(jp|jap|jpn|japanese|giapponese)$/i.test(v)) return 'JA'
+  return v
+}
+
 function seedForm(item?: PlainItem): FormState {
   if (item) {
     return {
@@ -42,7 +62,7 @@ function seedForm(item?: PlainItem): FormState {
       name: item.name,
       setName: item.setName ?? '',
       cardNumber: item.cardNumber ?? '',
-      language: item.language ?? '',
+      language: normalizeLang(item.language),
       externalId: item.externalId ?? '',
       imageUrl: item.imageUrl ?? '',
       condition: item.condition ?? '',
@@ -56,12 +76,12 @@ function seedForm(item?: PlainItem): FormState {
     }
   }
   return {
-    game: 'POKEMON',
-    itemType: 'RAW',
+    game: GAME,
+    itemType: 'SEALED',
     name: '',
     setName: '',
     cardNumber: '',
-    language: '',
+    language: 'IT',
     externalId: '',
     imageUrl: '',
     condition: '',
@@ -81,7 +101,20 @@ const fieldClass = 'w-full rounded border border-border bg-card px-3 py-2 text-s
 
 export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
   const t = useT()
+  const lang = useLang()
   const [form, setForm] = useState<FormState>(() => seedForm(item))
+  // The search is replaced by a summary card once a product/card is picked.
+  // Editing an existing item starts in the "picked" state.
+  const [picked, setPicked] = useState(() => !!item)
+  // The auto price we last obtained, kept so `f_backToAuto` can restore it after
+  // a manual edit. Seeded from an item that is already AUTO-priced.
+  const [autoPrice, setAutoPrice] = useState<number | null>(() =>
+    item && item.marketValueSource === 'AUTO' ? item.marketValue : null
+  )
+  // ISO date the auto price refers to: the item's stored timestamp when editing,
+  // "now" for a price just fetched on pick.
+  const [priceDate, setPriceDate] = useState<string | null>(() => item?.marketValueUpdatedAt ?? null)
+  const [priceLoading, setPriceLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -105,44 +138,117 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
   const set = (field: keyof FormState, value: string | number) =>
     setForm((prev) => ({ ...prev, [field]: value }))
 
-  const handlePick = (r: CardSearchResult) => {
-    setForm((prev) => {
-      const raw = prev.itemType === 'RAW'
-      return {
-        ...prev,
-        name: r.name,
-        setName: r.setName,
-        cardNumber: r.cardNumber,
-        imageUrl: r.imageUrl ?? '',
-        externalId: r.externalId,
-        // Auto-fill the market value on selection (Cardmarket card price).
-        marketValue: r.lowPrice ?? prev.marketValue,
-        // Raw cards stay AUTO (refreshable); a graded slab keeps the value as MANUAL
-        // since its real value diverges from the raw card price.
-        marketValueSource: raw ? 'AUTO' : 'MANUAL',
-      }
-    })
+  const isGraded = form.itemType === 'GRADED'
+  const isRaw = form.itemType === 'RAW'
+  const isCard = isRaw || isGraded
+  const isSealed = form.itemType === 'SEALED'
+
+  // Switching type invalidates any pick: the external id, the image and the
+  // auto price all belong to the previous type's catalogue.
+  const clearPick = (nextType?: string) => {
+    setForm((prev) => ({
+      ...prev,
+      itemType: nextType ?? prev.itemType,
+      name: '',
+      setName: '',
+      cardNumber: '',
+      externalId: '',
+      imageUrl: '',
+      marketValueSource: 'MANUAL',
+    }))
+    setPicked(false)
+    setAutoPrice(null)
+    setPriceDate(null)
+  }
+
+  const selectType = (next: 'SEALED' | 'RAW') => {
+    // "Carta" covers RAW and GRADED — don't reset a graded item back to raw.
+    if (next === 'SEALED' ? isSealed : isCard) return
+    clearPick(next)
+  }
+
+  const toggleGraded = (checked: boolean) => {
+    // A slab's value diverges from the raw card price, so a graded item never
+    // keeps an auto price.
+    setForm((prev) => ({
+      ...prev,
+      itemType: checked ? 'GRADED' : 'RAW',
+      marketValueSource: 'MANUAL',
+    }))
+    if (checked) setPriceDate(null)
+  }
+
+  const handlePick = async (r: CardSearchResult) => {
+    const graded = isGraded
+    setForm((prev) => ({
+      ...prev,
+      name: r.name,
+      setName: r.setName,
+      cardNumber: r.cardNumber,
+      imageUrl: r.imageUrl ?? '',
+      externalId: r.externalId,
+      // Stays MANUAL until (and unless) /api/cards/price returns a price.
+      marketValueSource: 'MANUAL',
+    }))
+    setPicked(true)
+    setAutoPrice(null)
+    setPriceDate(null)
+    // A graded slab keeps the value MANUAL: its real value diverges from the
+    // raw card price, so don't fetch one.
+    if (graded) return
+
+    // TCGdex's card list endpoint carries no prices — the Cardmarket price is
+    // fetched for the picked card only.
+    setPriceLoading(true)
+    try {
+      const res = await fetch(`/api/cards/price?id=${encodeURIComponent(r.externalId)}`)
+      if (!res.ok) return
+      const data = (await res.json()) as { priceEur: number | null }
+      const price = data.priceEur
+      if (price == null) return
+      setForm((prev) => ({ ...prev, marketValue: price, marketValueSource: 'AUTO' }))
+      setAutoPrice(price)
+      setPriceDate(new Date().toISOString())
+    } catch {
+      // Leave the value MANUAL — the user can type one.
+    } finally {
+      setPriceLoading(false)
+    }
   }
 
   const handlePickSealed = (r: SealedSearchResult) => {
-    // Only prefill name + image. There is no free, accurate Cardmarket price for
-    // sealed products (TCGplayer/US is far off from Cardmarket/EU), so the value
-    // stays manual rather than showing a wrong number.
+    // The sealed search already carries a working price and external id: keep
+    // both so the item is auto-priced and the refresh can re-price it later.
     setForm((prev) => ({
       ...prev,
       name: r.name,
       imageUrl: r.imageUrl ?? '',
+      externalId: r.externalId,
+      marketValue: r.priceEur ?? prev.marketValue,
+      marketValueSource: r.priceEur != null ? 'AUTO' : 'MANUAL',
     }))
+    setPicked(true)
+    setAutoPrice(r.priceEur)
+    setPriceDate(r.priceEur != null ? new Date().toISOString() : null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    // The name lives inside the collapsed <details>, so it cannot carry
+    // `required`: a browser cannot focus a hidden invalid control and would
+    // refuse to submit with no visible reason. Validate it here instead.
+    if (!form.name.trim()) {
+      setError(t('m_validationErr'))
+      return
+    }
+
     setSubmitting(true)
 
-    // Auto-priced items: Pokémon raw cards (pokemontcg.io) and sealed products
-    // picked from search (tcgcsv). They keep their externalId + AUTO source so the
-    // refresh can re-price them; everything else is MANUAL.
+    // Auto-priced items: Pokémon raw cards (TCGdex/Cardmarket) and sealed
+    // products picked from search (tcgcsv). They keep their externalId + AUTO
+    // source so the refresh can re-price them; everything else is MANUAL.
     const autoEligible =
       (form.game === 'POKEMON' && form.itemType === 'RAW') ||
       (form.itemType === 'SEALED' && form.externalId.startsWith('tcgcsv:'))
@@ -198,11 +304,74 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     }
   }
 
-  const isGraded = form.itemType === 'GRADED'
-  const isRaw = form.itemType === 'RAW'
-  // Card search for Pokémon singles (raw or graded); set search for sealed products.
-  const isPokemonCardSearch = form.game === 'POKEMON' && (isRaw || isGraded)
-  const isPokemonSealed = form.game === 'POKEMON' && form.itemType === 'SEALED'
+  const legacyLang =
+    form.language && !(LANG_CODES as readonly string[]).includes(form.language) ? form.language : null
+
+  const formattedPriceDate = priceDate
+    ? new Date(priceDate).toLocaleDateString(lang === 'en' ? 'en-GB' : 'it-IT')
+    : null
+
+  const isAuto = form.marketValueSource === 'AUTO'
+  const isTcgcsv = form.externalId.startsWith('tcgcsv:')
+  // A Cardmarket EUR price for a raw card is real EU market data; a sealed
+  // price is a US TCGplayer figure converted from USD, i.e. an estimate.
+  const showCardmarket = isAuto && isRaw && form.externalId !== ''
+  const showEstimate = isAuto && isSealed && isTcgcsv
+
+  const typeButtonClass = (active: boolean) =>
+    `flex-1 rounded px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      active ? 'bg-primary text-on-primary' : 'border border-border text-fg hover:bg-surface'
+    }`
+
+  // A value the user typed reads as "manual"; an empty one after a pick that
+  // yielded no price reads as "no automatic price" — saying "entered manually"
+  // there would describe something the user never did.
+  const showManual = !showCardmarket && !showEstimate && form.marketValue > 0
+  const showNoPrice = !showCardmarket && !showEstimate && !showManual
+
+  const priceLabel = (
+    <div className="mt-1 space-y-1">
+      {priceLoading && <p className="text-xs text-muted">…</p>}
+      {!priceLoading && showCardmarket && (
+        <p className="text-xs text-success">
+          {t('f_priceCardmarket')} {formattedPriceDate ?? ''}
+        </p>
+      )}
+      {!priceLoading && showEstimate && (
+        <>
+          <p className="text-xs text-warning">
+            {t('f_priceEstimateUsa')} {formattedPriceDate ?? ''}
+          </p>
+          {/* tcgcsv lists English sealed products only — an IT/JA item is priced
+              off the English product. The user accepted the estimate on the
+              condition that it is labelled as one. */}
+          {form.language !== 'EN' && (
+            <p className="text-xs text-warning">{t('f_priceEstimateLangWarn')}</p>
+          )}
+        </>
+      )}
+      {!priceLoading && (showManual || showNoPrice) && (
+        <p className="text-xs text-muted">
+          {showManual ? t('f_priceManual') : t('f_noPrice')}
+          {/* Only offered when there is an auto value to go back to. */}
+          {!isAuto && autoPrice != null && (
+            <>
+              {' · '}
+              <button
+                type="button"
+                onClick={() => {
+                  setForm((prev) => ({ ...prev, marketValue: autoPrice, marketValueSource: 'AUTO' }))
+                }}
+                className="underline hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {t('f_backToAuto')}
+              </button>
+            </>
+          )}
+        </p>
+      )}
+    </div>
+  )
 
   // Render via portal at document.body so the modal escapes the <main> stacking
   // context (z-10) and is never intercepted by the footer.
@@ -229,279 +398,273 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Gioco */}
-          <div>
-            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-game">
-              {t('m_game')}
-            </label>
-            <select
-              id="modal-game"
-              value={form.game}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  game: e.target.value,
-                  externalId: '',
-                  imageUrl: '',
-                  marketValueSource: 'MANUAL',
-                }))
-              }
-              className={fieldClass}
-            >
-              {Object.keys(GAME_LABELS).map((k) => (
-                <option key={k} value={k}>{t('game_' + k)}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Tipo */}
-          <div>
-            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-type">
-              {t('m_type')}
-            </label>
-            <select
-              id="modal-type"
-              value={form.itemType}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  itemType: e.target.value,
-                  externalId: '',
-                  imageUrl: '',
-                  marketValueSource: 'MANUAL',
-                }))
-              }
-              className={fieldClass}
-            >
-              {Object.keys(ITEM_TYPE_LABELS).map((k) => (
-                <option key={k} value={k}>{t('type_' + k)}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Pokémon card search — raw + graded singles share card art */}
-          {isPokemonCardSearch && (
-            <div>
-              <p className="text-sm font-medium text-fg mb-1">{t('m_searchCard')}</p>
-              <CardSearch onPick={handlePick} />
+          {/* Type toggle — sealed vs card. The game is always Pokémon. */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <button type="button" onClick={() => selectType('SEALED')} className={typeButtonClass(isSealed)}>
+                {t('f_typeSealed')}
+              </button>
+              <button type="button" onClick={() => selectType('RAW')} className={typeButtonClass(isCard)}>
+                {t('f_typeCard')}
+              </button>
             </div>
-          )}
-
-          {/* Sealed product search (IT/EN) with auto price */}
-          {isPokemonSealed && (
-            <div>
-              <p className="text-sm font-medium text-fg mb-1">{t('m_searchSet')}</p>
-              <SealedSearch onPick={handlePickSealed} />
-            </div>
-          )}
-
-          {/* Nome + live image preview */}
-          <div className="flex gap-3 items-start">
-            <ItemImage
-              item={{
-                imageUrl: form.imageUrl.trim() || null,
-                itemType: form.itemType,
-                game: form.game,
-                name: form.name,
-              }}
-              className="aspect-[5/7] w-24 rounded-lg border border-border shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-name">
-                {t('m_name')}
-              </label>
-              <input
-                id="modal-name"
-                type="text"
-                value={form.name}
-                onChange={(e) => set('name', e.target.value)}
-                required
-                className={fieldClass}
-              />
-            </div>
-          </div>
-
-          {/* Set / numero carta */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-setname">
-                {t('m_set')}
-              </label>
-              <input
-                id="modal-setname"
-                type="text"
-                value={form.setName}
-                onChange={(e) => set('setName', e.target.value)}
-                className={fieldClass}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-cardnumber">
-                {t('m_cardNumber')}
-              </label>
-              <input
-                id="modal-cardnumber"
-                type="text"
-                value={form.cardNumber}
-                onChange={(e) => set('cardNumber', e.target.value)}
-                className={fieldClass}
-              />
-            </div>
-          </div>
-
-          {/* Lingua */}
-          <div>
-            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-language">
-              {t('m_language')}
-            </label>
-            <input
-              id="modal-language"
-              type="text"
-              value={form.language}
-              onChange={(e) => set('language', e.target.value)}
-              placeholder={t('m_languagePlaceholder')}
-              className={fieldClass}
-            />
-          </div>
-
-          {/* Condizione (only for RAW) */}
-          {isRaw && (
-            <div>
-              <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-condition">
-                {t('m_condition')}
-              </label>
-              <select
-                id="modal-condition"
-                value={form.condition}
-                onChange={(e) => set('condition', e.target.value)}
-                className={fieldClass}
-              >
-                <option value="">{t('m_select')}</option>
-                {Object.entries(CONDITION_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Grading fields (only for GRADED) */}
-          {isGraded && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-grading-company">
-                  {t('m_gradingCompany')}
-                </label>
-                <select
-                  id="modal-grading-company"
-                  value={form.gradingCompany}
-                  onChange={(e) => set('gradingCompany', e.target.value)}
-                  className={fieldClass}
-                >
-                  <option value="">{t('m_select')}</option>
-                  <option value="PSA">PSA</option>
-                  <option value="BGS">BGS</option>
-                  <option value="CGC">CGC</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-grade">
-                  {t('m_grade')}
-                </label>
+            {isCard && (
+              <label className="flex items-center gap-2 text-sm text-fg">
                 <input
-                  id="modal-grade"
-                  type="text"
-                  value={form.grade}
-                  onChange={(e) => set('grade', e.target.value)}
-                  placeholder="es. 9, 10, 9.5"
-                  className={fieldClass}
+                  type="checkbox"
+                  checked={isGraded}
+                  onChange={(e) => toggleGraded(e.target.checked)}
+                  className="rounded border-border focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
-              </div>
-            </div>
-          )}
-
-          {/* Quantità */}
-          <div>
-            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-quantity">
-              {t('m_quantity')}
-            </label>
-            <input
-              id="modal-quantity"
-              type="number"
-              min={1}
-              step={1}
-              value={form.quantity}
-              onChange={(e) => set('quantity', parseInt(e.target.value, 10) || 1)}
-              className={fieldClass}
-            />
-          </div>
-
-          {/* Prezzo di acquisto */}
-          <div>
-            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-purchase-price">
-              {t('m_purchasePrice')}
-            </label>
-            <input
-              id="modal-purchase-price"
-              type="number"
-              min={0}
-              step={0.01}
-              value={form.purchasePrice}
-              onChange={(e) => set('purchasePrice', parseFloat(e.target.value) || 0)}
-              className={fieldClass}
-            />
-          </div>
-
-          {/* Valore di mercato */}
-          <div>
-            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-market-value">
-              {t('m_marketValue')}
-            </label>
-            <input
-              id="modal-market-value"
-              type="number"
-              min={0}
-              step={0.01}
-              value={form.marketValue}
-              onChange={(e) => {
-                set('marketValue', parseFloat(e.target.value) || 0)
-                set('marketValueSource', 'MANUAL')
-              }}
-              className={fieldClass}
-            />
-            {form.marketValueSource === 'AUTO' && (
-              <p className="mt-1 text-xs text-success">{t('m_autoUpdated')}</p>
+                {t('f_isGraded')}
+              </label>
             )}
           </div>
 
-          {/* URL immagine (all item types) */}
-          <div>
-            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-image-url">
-              {t('m_imageUrl')}
-            </label>
-            <input
-              id="modal-image-url"
-              type="text"
-              value={form.imageUrl}
-              onChange={(e) => set('imageUrl', e.target.value)}
-              placeholder={t('m_imageUrlPlaceholder')}
-              className={fieldClass}
-            />
-            <p className="mt-1 text-xs text-muted">{t('m_imageUrlHint')}</p>
+          {/* Search — hidden once a pick has been made (see the summary card). */}
+          {!picked && (
+            <div>
+              <p className="text-sm font-medium text-fg mb-1">
+                {isSealed ? t('f_searchSealed') : t('f_searchCard')}
+              </p>
+              {isSealed ? <SealedSearch onPick={handlePickSealed} /> : <CardSearch onPick={handlePick} />}
+            </div>
+          )}
+
+          {/* Summary of the pick: art, name, set, price label, and a way out. */}
+          {picked && (
+            <div className="flex gap-3 items-start rounded-lg border border-border p-3">
+              <ItemImage
+                item={{
+                  imageUrl: form.imageUrl.trim() || null,
+                  itemType: form.itemType,
+                  game: form.game,
+                  name: form.name,
+                }}
+                className="aspect-[5/7] w-16 rounded-lg border border-border shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-fg break-words">{form.name}</p>
+                {(form.setName || form.cardNumber) && (
+                  <p className="text-xs text-muted truncate">
+                    {form.setName} {form.cardNumber ? `· #${form.cardNumber}` : ''}
+                  </p>
+                )}
+                {priceLabel}
+              </div>
+              <button
+                type="button"
+                onClick={() => clearPick()}
+                className="shrink-0 rounded border border-border px-2 py-1 text-xs font-medium text-fg hover:bg-surface transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {t('f_change')}
+              </button>
+            </div>
+          )}
+
+          {/* The three fields that actually need filling in. */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-quantity">
+                {t('f_quantity')}
+              </label>
+              <input
+                id="modal-quantity"
+                type="number"
+                min={1}
+                step={1}
+                value={form.quantity}
+                onChange={(e) => set('quantity', parseInt(e.target.value, 10) || 1)}
+                className={fieldClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-purchase-price">
+                {t('f_paidPrice')}
+              </label>
+              <input
+                id="modal-purchase-price"
+                type="number"
+                min={0}
+                step={0.01}
+                value={form.purchasePrice}
+                onChange={(e) => set('purchasePrice', parseFloat(e.target.value) || 0)}
+                className={fieldClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-language">
+                {t('f_language')}
+              </label>
+              <select
+                id="modal-language"
+                value={form.language}
+                onChange={(e) => set('language', e.target.value)}
+                className={fieldClass}
+              >
+                <option value="">{t('m_select')}</option>
+                <option value="IT">{t('f_langIT')}</option>
+                <option value="EN">{t('f_langEN')}</option>
+                <option value="JA">{t('f_langJA')}</option>
+                {/* An unrecognised legacy value stays selectable rather than being dropped. */}
+                {legacyLang && <option value={legacyLang}>{legacyLang}</option>}
+              </select>
+            </div>
           </div>
 
-          {/* Note */}
-          <div>
-            <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-notes">
-              {t('m_notes')}
-            </label>
-            <textarea
-              id="modal-notes"
-              value={form.notes}
-              onChange={(e) => set('notes', e.target.value)}
-              rows={3}
-              className={`${fieldClass} resize-none`}
-            />
-          </div>
+          {/* Everything the search normally fills in, or that rarely needs touching. */}
+          <details className="rounded-lg border border-border">
+            <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-fg">
+              {t('f_moreDetails')}
+            </summary>
+            <div className="space-y-4 border-t border-border p-3">
+              {/* Nome */}
+              <div>
+                <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-name">
+                  {t('m_name')}
+                </label>
+                <input
+                  id="modal-name"
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => set('name', e.target.value)}
+                  className={fieldClass}
+                />
+              </div>
+
+              {/* Set / numero carta */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-setname">
+                    {t('m_set')}
+                  </label>
+                  <input
+                    id="modal-setname"
+                    type="text"
+                    value={form.setName}
+                    onChange={(e) => set('setName', e.target.value)}
+                    className={fieldClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-cardnumber">
+                    {t('m_cardNumber')}
+                  </label>
+                  <input
+                    id="modal-cardnumber"
+                    type="text"
+                    value={form.cardNumber}
+                    onChange={(e) => set('cardNumber', e.target.value)}
+                    className={fieldClass}
+                  />
+                </div>
+              </div>
+
+              {/* Condizione (only for RAW) */}
+              {isRaw && (
+                <div>
+                  <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-condition">
+                    {t('m_condition')}
+                  </label>
+                  <select
+                    id="modal-condition"
+                    value={form.condition}
+                    onChange={(e) => set('condition', e.target.value)}
+                    className={fieldClass}
+                  >
+                    <option value="">{t('m_select')}</option>
+                    {Object.entries(CONDITION_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Grading fields (only for GRADED) */}
+              {isGraded && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-grading-company">
+                      {t('m_gradingCompany')}
+                    </label>
+                    <select
+                      id="modal-grading-company"
+                      value={form.gradingCompany}
+                      onChange={(e) => set('gradingCompany', e.target.value)}
+                      className={fieldClass}
+                    >
+                      <option value="">{t('m_select')}</option>
+                      <option value="PSA">PSA</option>
+                      <option value="BGS">BGS</option>
+                      <option value="CGC">CGC</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-grade">
+                      {t('m_grade')}
+                    </label>
+                    <input
+                      id="modal-grade"
+                      type="text"
+                      value={form.grade}
+                      onChange={(e) => set('grade', e.target.value)}
+                      placeholder="9, 10, 9.5"
+                      className={fieldClass}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Valore di mercato — editing it by hand switches the source to MANUAL. */}
+              <div>
+                <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-market-value">
+                  {t('m_marketValue')}
+                </label>
+                <input
+                  id="modal-market-value"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={form.marketValue}
+                  onChange={(e) => {
+                    set('marketValue', parseFloat(e.target.value) || 0)
+                    set('marketValueSource', 'MANUAL')
+                  }}
+                  className={fieldClass}
+                />
+              </div>
+
+              {/* URL immagine (all item types) */}
+              <div>
+                <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-image-url">
+                  {t('m_imageUrl')}
+                </label>
+                <input
+                  id="modal-image-url"
+                  type="text"
+                  value={form.imageUrl}
+                  onChange={(e) => set('imageUrl', e.target.value)}
+                  placeholder={t('m_imageUrlPlaceholder')}
+                  className={fieldClass}
+                />
+                <p className="mt-1 text-xs text-muted">{t('m_imageUrlHint')}</p>
+              </div>
+
+              {/* Note */}
+              <div>
+                <label className="block text-sm font-medium text-fg mb-1" htmlFor="modal-notes">
+                  {t('m_notes')}
+                </label>
+                <textarea
+                  id="modal-notes"
+                  value={form.notes}
+                  onChange={(e) => set('notes', e.target.value)}
+                  rows={3}
+                  className={`${fieldClass} resize-none`}
+                />
+              </div>
+            </div>
+          </details>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-2">

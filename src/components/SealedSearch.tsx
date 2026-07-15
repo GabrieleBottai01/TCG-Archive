@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { formatEUR } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 
 export type SealedSearchResult = {
@@ -8,6 +9,7 @@ export type SealedSearchResult = {
   imageUrl: string | null
   priceEur: number | null
   externalId: string
+  matchLevel: 'exact' | 'fuzzy'
 }
 
 export function SealedSearch({ onPick }: { onPick: (r: SealedSearchResult) => void }) {
@@ -49,6 +51,12 @@ export function SealedSearch({ onPick }: { onPick: (r: SealedSearchResult) => vo
         className="w-full rounded border border-border bg-card px-3 py-2 text-sm text-fg placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
       {loading && <p className="text-xs text-muted">…</p>}
+      {/* Every result is a fuzzy match: the query resolved to a set but to no
+          specific product type, so these are English catalogue names that may
+          not look like what was typed. Say so rather than let it puzzle. */}
+      {results.length > 0 && results.every((r) => r.matchLevel === 'fuzzy') && (
+        <p className="text-xs text-muted">{t('f_fuzzyNote')}</p>
+      )}
       {results.length > 0 && (
         <ul className="max-h-64 overflow-y-auto rounded-lg border border-border bg-card divide-y divide-border">
           {results.map((r) => (
@@ -68,6 +76,9 @@ export function SealedSearch({ onPick }: { onPick: (r: SealedSearchResult) => vo
                 )}
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium text-fg truncate">{r.name}</span>
+                  {r.priceEur != null && (
+                    <span className="block text-xs text-muted">{formatEUR(r.priceEur)}</span>
+                  )}
                 </span>
               </button>
             </li>
@@ -75,7 +86,7 @@ export function SealedSearch({ onPick }: { onPick: (r: SealedSearchResult) => vo
         </ul>
       )}
       {!loading && query.trim() && results.length === 0 && (
-        <p className="text-xs text-muted">{t('m_noResults')}</p>
+        <p className="text-xs text-muted">{t('f_noResultsHint')}</p>
       )}
     </div>
   )

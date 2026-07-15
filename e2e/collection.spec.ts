@@ -6,10 +6,14 @@ test('add a manual sealed item appears in collection', async ({ page }) => {
   // Open the "Aggiungi" modal
   await page.getByRole('button', { name: 'Aggiungi' }).click()
 
-  // Switch type to SEALED — use id to disambiguate from FilterBar's "Filtra per tipo" select
-  await page.locator('#modal-type').selectOption('SEALED')
+  // Type is a toggle now and the game selector is gone (the collection is
+  // Pokémon-only). SEALED is the default; click it to be explicit.
+  await page.getByRole('button', { name: 'Sigillato', exact: true }).click()
 
-  // Fill required fields using the modal form's explicit ids
+  // Name and market value moved into the collapsed "Altri dettagli" section:
+  // the normal flow fills them from the search, while this test enters an item
+  // by hand. Expand the section before filling.
+  await page.getByText('Altri dettagli').click()
   await page.locator('#modal-name').fill('Booster Box Test E2E')
   await page.locator('#modal-market-value').fill('100')
 

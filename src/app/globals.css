@@ -21,6 +21,7 @@
   --ring: #9d5cf5;
 
   --success: #059669;
+  --warning: #b45309;
   --danger: #dc2626;
 
   --silver: #b9b5cc;
@@ -45,6 +46,7 @@
   --ring: #b98cf8;
 
   --success: #34d399;
+  --warning: #fbbf24;
   --danger: #f87171;
 
   --silver: #c5c2d6;
@@ -64,6 +66,7 @@
   --color-on-primary: var(--on-primary);
   --color-ring: var(--ring);
   --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-silver: var(--silver);
 
