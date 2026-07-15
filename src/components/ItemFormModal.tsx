@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { CardSearch, type CardSearchResult } from '@/components/CardSearch'
 import { SealedSearch, type SealedSearchResult } from '@/components/SealedSearch'
 import { useT, useLang, CONDITION_LABELS } from '@/lib/i18n'
+import { priceSourceOf } from '@/lib/priceSource'
 import { ItemImage } from '@/components/ItemImage'
 import type { PlainItem } from '@/components/CollectionView'
 
@@ -392,22 +393,28 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     : null
 
   const isAuto = form.marketValueSource === 'AUTO'
-  const isTcgcsv = form.externalId.startsWith('tcgcsv:')
-  // A Cardmarket EUR price for a raw card is real EU market data; a sealed
-  // price is a US TCGplayer figure converted from USD, i.e. an estimate.
-  const showCardmarket = isAuto && isRaw && form.externalId !== ''
-  const showEstimate = isAuto && isSealed && isTcgcsv
+
+  // Derived by the same helper the collection list uses, so the two can never
+  // disagree about where a value came from. A value the user typed reads as
+  // "manual"; an empty one after a pick that yielded no price reads as "no
+  // automatic price" — saying "entered manually" there would describe
+  // something the user never did.
+  const source = priceSourceOf({
+    itemType: form.itemType,
+    externalId: form.externalId || null,
+    marketValue: form.marketValue,
+    marketValueSource: form.marketValueSource,
+    language: form.language || null,
+  })
+  const showCardmarket = source.kind === 'cardmarket'
+  const showEstimate = source.kind === 'estimate'
+  const showManual = source.kind === 'manual'
+  const showNoPrice = source.kind === 'none'
 
   const typeButtonClass = (active: boolean) =>
     `flex-1 rounded px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
       active ? 'bg-primary text-on-primary' : 'border border-border text-fg hover:bg-surface'
     }`
-
-  // A value the user typed reads as "manual"; an empty one after a pick that
-  // yielded no price reads as "no automatic price" — saying "entered manually"
-  // there would describe something the user never did.
-  const showManual = !showCardmarket && !showEstimate && form.marketValue > 0
-  const showNoPrice = !showCardmarket && !showEstimate && !showManual
 
   const priceLabel = (
     <div className="mt-1 space-y-1">

@@ -156,6 +156,18 @@ const it: Dict = {
   f_noPrice: 'Nessun prezzo automatico disponibile',
   f_fuzzyNote: 'Risultati in inglese: il catalogo dei sigillati è solo in inglese.',
   f_noResultsHint: 'Nessun risultato. Prova il nome del set o il termine inglese.',
+
+  // Price provenance, shown wherever a value is shown.
+  src_cardmarket: 'Cardmarket EUR',
+  src_estimate: 'Stima USA',
+  src_manual: 'Inserito a mano',
+  src_none: 'Nessun valore',
+  src_langWarn: 'Stima basata sul prodotto inglese.',
+  // Dashboard hero (the slab).
+  dash_balanceTitle: 'Saldo complessivo della collezione',
+  dash_netProfit: 'di profitto netto',
+  dash_investedOn: 'su',
+  dash_invested: 'investiti',
   f_change: 'Cambia',
 
   // Footer
@@ -338,6 +350,18 @@ const en: Dict = {
   f_noPrice: 'No automatic price available',
   f_fuzzyNote: 'English results: the sealed catalogue is English-only.',
   f_noResultsHint: 'No results. Try the set name or the English term.',
+
+  // Price provenance, shown wherever a value is shown.
+  src_cardmarket: 'Cardmarket EUR',
+  src_estimate: 'US estimate',
+  src_manual: 'Entered by hand',
+  src_none: 'No value',
+  src_langWarn: 'Estimate based on the English product.',
+  // Dashboard hero (the slab).
+  dash_balanceTitle: 'Total collection balance',
+  dash_netProfit: 'net profit',
+  dash_investedOn: 'on',
+  dash_invested: 'invested',
   f_change: 'Change',
 
   footer_tagline: 'The vault for your collection.',

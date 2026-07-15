@@ -92,26 +92,32 @@ export function Dashboard({ items }: DashboardProps) {
     <div className="space-y-8">
       <h1 className="font-display text-2xl font-bold text-fg">{t('dash_title')}</h1>
 
-      {/* Hero — the collection value as a neon vault readout */}
-      <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 sm:p-8 glow-violet">
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted">
-          {t('dash_collectionValue')}
-        </p>
-        <p className="font-display neon-text mt-2 text-4xl sm:text-5xl font-bold tabular-nums">
-          {formatEUR(totals.totalValue)}
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted">
-          <span>
-            {t('dash_cost')}{' '}
-            <span className="font-semibold text-fg">{formatEUR(totals.totalCost)}</span>
-          </span>
-          <span className="text-border">·</span>
-          <span>
-            {t('dash_pl')}{' '}
-            <span className="font-semibold">
-              <Money value={totals.profitLoss} signed />
-            </span>
-          </span>
+      {/* Hero — the collection balance, housed like the graded slab it is.
+          See `.slab` in globals.css for why the shell is brushed metal. */}
+      <section className="slab">
+        <div className="slab-inner">
+          <div className="flex items-center justify-between gap-4 border-b border-border bg-gradient-to-b from-primary-soft to-transparent px-4 py-2 sm:px-6">
+            <h2 className="font-display text-[0.66rem] font-bold uppercase tracking-[0.17em] text-muted">
+              {t('dash_balanceTitle')}
+            </h2>
+          </div>
+          <div className="px-4 py-5 sm:px-6 sm:py-6">
+            <p className="font-display neon-text text-4xl sm:text-5xl font-black tabular-nums leading-none">
+              {formatEUR(totals.totalValue)}
+            </p>
+            <p className="profit-gradient mt-2 text-base sm:text-lg font-bold tabular-nums">
+              {totals.profitLoss >= 0 ? '+' : '−'}
+              {formatEUR(Math.abs(totals.profitLoss))} {t('dash_netProfit')}
+            </p>
+            <p className="mt-0.5 text-sm text-muted tabular-nums">
+              {t('dash_investedOn')} {formatEUR(totals.totalCost)} {t('dash_invested')}
+              {totals.totalCost > 0 && (
+                <> · {totals.profitLoss >= 0 ? '+' : '−'}
+                  {Math.abs((totals.profitLoss / totals.totalCost) * 100).toFixed(1)}%
+                </>
+              )}
+            </p>
+          </div>
         </div>
       </section>
 

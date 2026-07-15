@@ -10,6 +10,7 @@ import { useT, CONDITION_LABELS } from '@/lib/i18n'
 import { ItemFormModal } from '@/components/ItemFormModal'
 import { ItemImage } from '@/components/ItemImage'
 import { GameBadge } from '@/components/GameBadge'
+import { PriceSourceChip } from '@/components/PriceSourceChip'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 // Mirrors the Prisma Item shape (plain object, serialized from server)
@@ -236,9 +237,11 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
                   <span className="text-xs text-muted">{t('type_' + item.itemType)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-fg">{formatEUR(item.marketValue)}</span>
+                  <span className="text-sm font-semibold text-fg tabular-nums">{formatEUR(item.marketValue)}</span>
                   <Money value={itemDifference(item)} signed />
                 </div>
+                {/* Says how much to trust the figure above it. */}
+                <PriceSourceChip item={item} />
                 {item.quantity > 1 && (
                   <p className="text-xs text-muted">x{item.quantity}</p>
                 )}
@@ -304,9 +307,14 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
                   <td className="py-2 pr-4 text-muted">
                     {item.condition ? (CONDITION_LABELS[item.condition] ?? item.condition) : '—'}
                   </td>
-                  <td className="py-2 pr-4 text-right text-fg">{item.quantity}</td>
-                  <td className="py-2 pr-4 text-right text-fg">{formatEUR(item.purchasePrice)}</td>
-                  <td className="py-2 pr-4 text-right text-fg">{formatEUR(item.marketValue)}</td>
+                  <td className="py-2 pr-4 text-right text-fg tabular-nums">{item.quantity}</td>
+                  <td className="py-2 pr-4 text-right text-fg tabular-nums">{formatEUR(item.purchasePrice)}</td>
+                  <td className="py-2 pr-4 text-right text-fg tabular-nums">
+                    <span className="inline-flex flex-col items-end gap-0.5">
+                      {formatEUR(item.marketValue)}
+                      <PriceSourceChip item={item} />
+                    </span>
+                  </td>
                   <td className="py-2 pr-4 text-right">
                     <Money value={itemDifference(item)} signed />
                   </td>

@@ -25,7 +25,13 @@
   --danger: #dc2626;
 
   --silver: #b9b5cc;
+  --silver-hi: #ffffff;
+  --silver-lo: #cfcbdd;
   --glow: rgba(157, 92, 245, 0.3);
+
+  /* Medallion interior (BrandMark), matching the light logo. */
+  --medallion-step: #b8b4c9;
+  --medallion-face: #8f8ba6;
 }
 
 /* ---- Dark theme (deep indigo, from the dark logo) ---- */
@@ -50,7 +56,13 @@
   --danger: #f87171;
 
   --silver: #c5c2d6;
+  --silver-hi: #f2f0fa;
+  --silver-lo: #6f6a8c;
   --glow: rgba(157, 92, 245, 0.55);
+
+  /* Medallion interior (BrandMark), matching the dark logo. */
+  --medallion-step: #171233;
+  --medallion-face: #0f0b22;
 }
 
 @theme inline {
@@ -69,6 +81,8 @@
   --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-silver: var(--silver);
+  --color-silver-hi: var(--silver-hi);
+  --color-silver-lo: var(--silver-lo);
 
   --font-sans: var(--font-space-grotesk);
   --font-display: var(--font-orbitron);
@@ -107,6 +121,48 @@ body::before {
 /* Soft violet lift for interactive surfaces (echoes the medallion ring). */
 .glow-violet {
   box-shadow: 0 10px 34px -14px var(--glow);
+}
+
+/* ---- The slab ----
+   A graded card lives sealed in an acrylic shell with a printed label band
+   across the top. The collection's headline number is the trophy of this
+   hobby, so it gets the trophy's housing. The brushed metal is quoted from
+   the logo's ring (see BrandMark) — `--silver` existed as a flat colour and
+   is now an actual material: fine striations under a diagonal sheen.
+   This is the one loud element; everything around it stays quiet. */
+.slab {
+  border-radius: 0.85rem;
+  padding: 3px;
+  background:
+    repeating-linear-gradient(
+      104deg,
+      rgba(255, 255, 255, 0.2) 0 1px,
+      rgba(0, 0, 0, 0.1) 1px 2px,
+      transparent 2px 4px
+    ),
+    linear-gradient(
+      104deg,
+      var(--silver-lo) 0%,
+      var(--silver-hi) 22%,
+      var(--silver) 40%,
+      var(--silver-lo) 58%,
+      var(--silver-hi) 78%,
+      var(--silver-lo) 100%
+    );
+  box-shadow: 0 14px 40px -18px var(--glow), 0 1px 0 rgba(255, 255, 255, 0.25) inset;
+}
+.slab-inner {
+  border-radius: 0.62rem;
+  background: var(--card);
+  overflow: hidden;
+}
+
+/* The net-profit figure: the brief's green→violet hybrid, spent only here. */
+.profit-gradient {
+  background: linear-gradient(90deg, var(--success), var(--primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 /* Display face helper with the wide tracking of the logo wordmark. */
