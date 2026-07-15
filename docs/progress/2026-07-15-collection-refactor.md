@@ -19,7 +19,7 @@
 | — | Spec di design scritta e approvata | ✅ fatto |
 | — | Branch dedicato creato | ✅ fatto |
 | — | Piano di implementazione | ⏳ prossimo |
-| 1 | `lib/fx.ts` — cambio USD→EUR live + cache 24h | ⬜ |
+| 1 | `lib/fx.ts` — cambio USD→EUR live + cache 24h | ✅ fatto |
 | 2 | `pricing/tcgdex.ts` — ricerca carte IT + prezzo Cardmarket EUR | ⬜ |
 | 3 | `pricing/sealedGlossary.ts` — glossario IT→EN tipi prodotto | ⬜ |
 | 4 | `pricing/sealed.ts` — glossario + fallback "mostra sempre risultati" | ⬜ |
@@ -55,3 +55,4 @@
 | Data | Modifica | Verifica | Commit |
 |---|---|---|---|
 | 2026-07-15 | Spec di design + file avanzamento + branch | — | (in corso) |
+| 2026-07-15 | Task 1: `lib/fx.ts` — `getUsdToEurRate()` con cache 24h e fallback `0.877`, endpoint `api.frankfurter.dev` | `npm test -- fx` → 4/4 verdi; `tsc --noEmit` e `npm run lint` puliti | `ea12187` |
