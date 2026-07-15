@@ -44,8 +44,11 @@ async function getJson<T>(url: string): Promise<T | null> {
 async function getSetMap(): Promise<Map<string, string>> {
   if (setsCache && Date.now() - setsCache.ts < SETS_TTL_MS) return setsCache.map
   const sets = await getJson<DexSet[]>(`${BASE}/sets`)
+  // A failed fetch (`null`) must not poison the cache — only a successful
+  // response, even an empty one, is worth remembering for the TTL window.
+  if (!sets) return new Map<string, string>()
   const map = new Map<string, string>()
-  for (const s of sets ?? []) if (s.id) map.set(s.id, s.name ?? '')
+  for (const s of sets) if (s.id) map.set(s.id, s.name ?? '')
   setsCache = { map, ts: Date.now() }
   return map
 }
@@ -61,7 +64,7 @@ export async function searchTcgdexCards(q: string): Promise<TcgdexCardResult[]> 
   if (!term) return []
   // Substring match — do NOT append `*`, it is matched literally.
   const cards = await getJson<DexListCard[]>(`${BASE}/cards?name=${encodeURIComponent(term)}`)
-  if (!cards) return []
+  if (!cards || cards.length === 0) return []
   const setMap = await getSetMap()
   return cards.slice(0, 20).map((c) => ({
     externalId: c.id,
