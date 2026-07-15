@@ -20,12 +20,10 @@ export type DailyObservation = {
 
 export type DailyReference = {
   medianEur: number | null
-  /** Count AFTER trimming — the sample the median actually rests on. */
+  /** Every observation of the day. Nothing is discarded — see WHY NO OUTLIER FENCE. */
   sampleSize: number
   confirmedSales: number
   quickSales: number
-  /** Not persisted. A product trimming half its listings means the matcher is wrong about it. */
-  trimmedCount: number
 }
 
 export type Strength = 'STRONG' | 'WEAK' | 'NONE'
@@ -36,41 +34,35 @@ const DISPLAY_WINDOW_DAYS = 14
 const SALES_FOR_STRONG = 3
 const SAMPLE_FOR_STRONG = 3
 
-// WHY A MULTIPLICATIVE FENCE, AND NOT IQR OR MAD.
+// WHY NO OUTLIER FENCE. THE MEDIAN IS ALREADY THE DEFENCE.
 //
 // The matcher has a known, unfixable residual false accept: `Destined Rivals
 // Elite Trainer Box ENG Promo Card` may be a lone ~2 euro promo card rather than
 // a ~50 euro box advertising the promo inside it, and no title-only rule can tell
-// them apart. Such listings WILL enter the sample, so the median must be robust
-// to them by design — that is its job here, not a nicety.
+// them apart. Such listings WILL enter the sample.
 //
-// The defining property of this error is that it is *multiplicative*: a promo
-// card is ~25x cheaper than its box, while honest listings of the same box vary
-// by well under 2x (condition, shipping, seller optimism). So the fence is a
-// ratio around the median, not a distance:  median/K <= price <= median*K.
+// A multiplicative fence (median/2.5 .. median*2.5, n>=3) used to sit here to trim
+// them. It was removed: the median's breakdown point is 50% contamination, so it
+// already survives the promo case unaided, and the fence was measured net negative
+// against the true value:
 //
-// K = 2.5 sits in the wide gap between those two worlds: it keeps a 100 euro ask
-// on a 50 euro box (optimism, not a different product) and drops a 2 euro promo.
+//   [2, 50, 52]      true 50 | median 50 ✓ | fenced 51      — fence no better
+//   [2, 2, 50, 52, 55] true 52 | median 50   | fenced 52 ✓   — fence wins by 2 euro
+//   [20, 50, 130]    true 50 | median 50 ✓ | fenced 35 ✗    — fence off by 30%
+//   [45, 50, 900]    true 50 | median 50 ✓ | fenced 47.5     — fence no better
 //
-// Rejected alternatives, both of which fail precisely where our samples live:
-//   * IQR fence — undefined-to-useless at n=3. For [2, 50, 52] the fence computes
-//     to roughly [-11, 88] and the 2 euro promo SURVIVES. Useless exactly here.
-//   * MAD fence — implodes to zero whenever half the sample ties, which is common
-//     at n=3. For [50, 50, 52] MAD = 0 and the honest 52 gets trimmed.
-// The ratio fence has neither failure mode and needs no special-casing.
+// The fence bought one 2-euro improvement (noise) and cost a 30% error: trimming a
+// HIGH value at n=3 drags the median DOWN off the true price. It was also inert
+// where it was supposed to help cheap products (a 2 euro promo against a 5 euro
+// booster pack is inside K=2.5), and its `trimmedCount` warning signal inverted —
+// at [2, 2, 2, 50] the fence anchors on the promos, trims the real box, and
+// reports a healthy sample. Do not reintroduce it.
 //
-// BEHAVIOUR AT THE SMALL n WHERE MOST SAMPLES LIVE:
-//   n=1 — no trimming. There is no majority to define a centre; the lone value is
-//         both the median and the only candidate outlier. Nothing can be decided.
-//   n=2 — no trimming. Which of [2, 50] is the liar is genuinely undecidable: the
-//         midpoint 26 is a poor number, but inventing a reason to drop one of the
-//         two would be arbitrary. The layers downstream handle it — sampleSize 2
-//         forces WEAK, and `displayValue`'s 14-day median absorbs the day.
-//   n>=3 — trimming fires. The raw median now has a real majority behind it (the
-//         median tolerates up to 50% contamination), so it is a trustworthy anchor
-//         for the fence even when one of the three values is a promo card.
-const OUTLIER_FENCE_RATIO = 2.5
-const MIN_SAMPLE_TO_TRIM = 3
+// WHERE THE NUMBER IS GENUINELY WRONG (pinned by name in the tests, not hidden):
+//   n=2  — [2, 50] yields 26. No median can resolve a 50/50 sample; there is no
+//          majority to find. The defence is `strength: WEAK`, nothing else.
+//   >50% — [2, 2, 2, 50] yields 2. Past half contamination no median-anchored
+//          method survives, and no fence would have saved it either.
 
 /** Median of a non-empty list. Caller guarantees non-empty. */
 function medianOf(sorted: number[]): number {
@@ -84,46 +76,22 @@ function toCents(value: number): number {
 }
 
 /**
- * Today's reference, computed from the live raw observations (<=30 days).
- * Outliers are trimmed before the median is taken — see OUTLIER_FENCE_RATIO.
+ * Today's reference: the plain median of the live raw observations (<=30 days).
+ * Nothing is discarded — see WHY NO OUTLIER FENCE above.
  */
 export function computeDailyReference(obs: DailyObservation[]): DailyReference {
   if (obs.length === 0) {
-    return { medianEur: null, sampleSize: 0, confirmedSales: 0, quickSales: 0, trimmedCount: 0 }
+    return { medianEur: null, sampleSize: 0, confirmedSales: 0, quickSales: 0 }
   }
 
-  const kept = trimOutliers(obs)
-
-  // Sales are counted on the RETAINED sample only. A trimmed listing is, by our
-  // own reckoning, a different product — its sale is evidence about that product,
-  // not about this one, and must not lend it strength.
-  const sorted = kept.map((o) => o.priceEur).sort((a, b) => a - b)
+  const sorted = obs.map((o) => o.priceEur).sort((a, b) => a - b)
 
   return {
     medianEur: toCents(medianOf(sorted)),
-    sampleSize: kept.length,
-    confirmedSales: kept.filter((o) => o.confirmedSale).length,
-    quickSales: kept.filter((o) => o.quickSale).length,
-    trimmedCount: obs.length - kept.length,
+    sampleSize: obs.length,
+    confirmedSales: obs.filter((o) => o.confirmedSale).length,
+    quickSales: obs.filter((o) => o.quickSale).length,
   }
-}
-
-function trimOutliers(obs: DailyObservation[]): DailyObservation[] {
-  if (obs.length < MIN_SAMPLE_TO_TRIM) return obs
-
-  const sorted = obs.map((o) => o.priceEur).sort((a, b) => a - b)
-  const anchor = medianOf(sorted)
-
-  // A non-positive anchor gives a degenerate fence that would trim everything.
-  // There is nothing sensible to trim around, so don't.
-  if (anchor <= 0) return obs
-
-  const low = anchor / OUTLIER_FENCE_RATIO
-  const high = anchor * OUTLIER_FENCE_RATIO
-  const kept = obs.filter((o) => o.priceEur >= low && o.priceEur <= high)
-
-  // The anchor is itself a member, so `kept` can never be empty. Belt and braces.
-  return kept.length > 0 ? kept : obs
 }
 
 /**
@@ -131,7 +99,7 @@ function trimOutliers(obs: DailyObservation[]): DailyObservation[] {
  * which are pruned at 30 days and cannot answer a 90-day question).
  *
  * @param history chronological, oldest first; only the last 90 rows are read.
- * @param todaySample today's post-trim `sampleSize`.
+ * @param todaySample today's `sampleSize` — the count of today's observations.
  */
 export function computeStrength(
   history: { confirmedSales: number; quickSales: number }[],
@@ -150,6 +118,16 @@ export function computeStrength(
  * The number the user sees. Not today's median — a day with 2 listings would
  * make it oscillate — but the median of the daily medians over the last 14 days
  * that actually had a sample. Damps noise and survives empty days.
+ *
+ * WHAT THIS DOES NOT DO: it absorbs a bad DAY, not a bad BIAS. The window is a
+ * median over days, so it only rejects a thin day that disagrees with its
+ * neighbours. A product that is *persistently* thin repeats its error instead:
+ * 14 consecutive [2, 50] days each yield 26 euro, and the 14-day median of those
+ * is 26 euro against a true 50 — a -48% systematic error, the same order as the
+ * US-based estimate this whole feature exists to replace.
+ *
+ * So containment for a persistently-thin product rests ENTIRELY on the UI
+ * honouring `strength: WEAK`. The maths here does not and cannot provide it.
  *
  * @param history chronological, oldest first; only the last 14 rows are read.
  */
