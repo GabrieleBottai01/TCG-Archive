@@ -25,7 +25,7 @@ export function createObservatoryStore(db: PrismaClient): ObservatoryStore {
       const owned = await db.item.findMany({
         where: { itemType: 'SEALED', externalId: { startsWith: 'tcgcsv:' }, language: { not: null } },
         distinct: ['externalId', 'language'],
-        select: { externalId: true, language: true, name: true },
+        select: { externalId: true, language: true, name: true, priceQuery: true },
       })
 
       // Order stalest-first: the product referenced longest ago (or never) leads,
@@ -41,10 +41,12 @@ export function createObservatoryStore(db: PrismaClient): ObservatoryStore {
       }
 
       return owned
-        .filter((i): i is { externalId: string; language: string; name: string } =>
+        .filter((i): i is { externalId: string; language: string; name: string; priceQuery: string | null } =>
           i.externalId !== null && i.language !== null,
         )
-        .map((i) => ({ productKey: i.externalId, name: i.name, lang: i.language }))
+        // name here is the eBay QUERY: the Italian term (priceQuery) for new
+        // items, or the legacy Italian name for pre-migration items.
+        .map((i) => ({ productKey: i.externalId, name: i.priceQuery ?? i.name, lang: i.language }))
         .sort((a, b) => {
           const da = lastDay.get(`${a.productKey}|${a.lang}`) ?? 0 // never referenced → stalest
           const db_ = lastDay.get(`${b.productKey}|${b.lang}`) ?? 0
