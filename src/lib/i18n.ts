@@ -151,6 +151,8 @@ const it: Dict = {
   f_priceCardmarket: 'Cardmarket · aggiornato il',
   f_priceEstimateUsa: 'Stima TCGplayer USA · convertito ·',
   f_priceEstimateLangWarn: 'Stima basata sul prodotto inglese: il catalogo non include i sigillati in questa lingua.',
+  f_priceEstimateEbay: 'Stima eBay EU · mediana annunci',
+  f_estimateListings: 'annunci',
   f_priceManual: 'Valore inserito a mano',
   f_backToAuto: 'Torna al prezzo automatico',
   f_noPrice: 'Nessun prezzo automatico disponibile',
@@ -159,7 +161,7 @@ const it: Dict = {
 
   // Price provenance, shown wherever a value is shown.
   src_cardmarket: 'Cardmarket EUR',
-  src_estimate: 'Stima USA',
+  src_estimate: 'Stima eBay EU',
   src_manual: 'Inserito a mano',
   src_none: 'Nessun valore',
   src_langWarn: 'Stima basata sul prodotto inglese.',
@@ -351,6 +353,8 @@ const en: Dict = {
   f_priceCardmarket: 'Cardmarket · updated',
   f_priceEstimateUsa: 'TCGplayer US estimate · converted ·',
   f_priceEstimateLangWarn: 'Estimate based on the English product: the catalogue has no sealed products in this language.',
+  f_priceEstimateEbay: 'eBay EU estimate · median of listings',
+  f_estimateListings: 'listings',
   f_priceManual: 'Value entered manually',
   f_backToAuto: 'Back to the automatic price',
   f_noPrice: 'No automatic price available',
@@ -359,7 +363,7 @@ const en: Dict = {
 
   // Price provenance, shown wherever a value is shown.
   src_cardmarket: 'Cardmarket EUR',
-  src_estimate: 'US estimate',
+  src_estimate: 'eBay EU estimate',
   src_manual: 'Entered by hand',
   src_none: 'No value',
   src_langWarn: 'Estimate based on the English product.',

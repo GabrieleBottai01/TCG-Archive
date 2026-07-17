@@ -33,8 +33,14 @@ export async function POST(req: NextRequest) {
 
   async function reprice(it: (typeof items)[number]) {
     try {
-      const r = await pickProvider({ game: it.game, itemType: it.itemType, externalId: it.externalId })
-        .fetchPrice({ game: it.game, itemType: it.itemType, externalId: it.externalId })
+      const input = {
+        game: it.game,
+        itemType: it.itemType,
+        externalId: it.externalId,
+        name: it.name,
+        language: it.language,
+      }
+      const r = await pickProvider(input).fetchPrice(input)
       if (r) {
         await prisma.item.update({
           where: { id: it.id },

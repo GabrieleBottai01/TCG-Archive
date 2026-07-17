@@ -116,6 +116,9 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
   // "now" for a price just fetched on pick.
   const [priceDate, setPriceDate] = useState<string | null>(() => item?.marketValueUpdatedAt ?? null)
   const [priceLoading, setPriceLoading] = useState(false)
+  // How many eBay listings backed the current sealed estimate (null = not an eBay
+  // estimate, e.g. the tcgcsv fallback or a card). Drives the "· N annunci" tag.
+  const [ebaySample, setEbaySample] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -286,26 +289,62 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     }
   }
 
-  const handlePickSealed = (r: SealedSearchResult) => {
-    // No fetch of its own, but a card pick may still be in flight if the type
-    // was switched — it must not land on this product.
-    invalidatePriceFetch()
-    setPriceLoading(false)
-    // The sealed search already carries a working price and external id: keep
-    // both so the item is auto-priced and the refresh can re-price it later.
+  const handlePickSealed = async (r: SealedSearchResult, query: string) => {
+    const reqId = invalidatePriceFetch()
+    // Keep the Italian "type + set" the user typed as the name, NOT the English
+    // catalogue name: eBay IT recall (for the estimate now, and the refresh /
+    // observatory later) depends on the Italian term.
+    const searchName = query || r.name
+    const lang = form.language || 'IT'
     setForm((prev) => ({
       ...prev,
-      name: r.name,
+      name: searchName,
       imageUrl: r.imageUrl ?? '',
       externalId: r.externalId,
-      // A product with no price starts at 0 and stays MANUAL: inheriting the
-      // previous pick's figure would price this item at another one's value.
-      marketValue: r.priceEur ?? 0,
-      marketValueSource: r.priceEur != null ? 'AUTO' : 'MANUAL',
+      // Start MANUAL at 0; the eBay estimate below promotes it to AUTO.
+      marketValue: 0,
+      marketValueSource: 'MANUAL',
     }))
     setPicked(true)
-    setAutoPrice(r.priceEur)
-    setPriceDate(r.priceEur != null ? new Date().toISOString() : null)
+    setAutoPrice(null)
+    setPriceDate(null)
+    setEbaySample(null)
+
+    // The real value is the live median of current eBay IT+DE listings — the
+    // European market, not the tcgcsv US figure. tcgcsv is only the fallback.
+    const controller = new AbortController()
+    priceAbortRef.current = controller
+    setPriceLoading(true)
+    try {
+      const res = await fetch(
+        `/api/sealed/estimate?name=${encodeURIComponent(searchName)}&lang=${encodeURIComponent(lang)}`,
+        { signal: controller.signal },
+      )
+      let eur: number | null = null
+      let sample = 0
+      if (res.ok) {
+        const data = (await res.json()) as { eur: number | null; sampleSize: number }
+        eur = data.eur
+        sample = data.sampleSize
+      }
+      if (eur == null) eur = r.priceEur // eBay found nothing → tcgcsv fallback
+      // A newer pick (or a clear) landed while this was in flight: it wins.
+      if (priceReqIdRef.current !== reqId) return
+      if (eur != null) {
+        const price = eur
+        setForm((prev) => ({ ...prev, marketValue: price, marketValueSource: 'AUTO' }))
+        setAutoPrice(price)
+        setPriceDate(new Date().toISOString())
+        setEbaySample(sample > 0 ? sample : null)
+      }
+    } catch {
+      // Aborted or network error: leave the value MANUAL at 0, the user can type.
+    } finally {
+      if (priceReqIdRef.current === reqId) {
+        setPriceLoading(false)
+        priceAbortRef.current = null
+      }
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -426,18 +465,11 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
         </p>
       )}
       {!priceLoading && showEstimate && (
-        <>
-          <p className="text-xs text-warning">
-            {t('f_priceEstimateUsa')}
-            {formattedPriceDate ? ` ${formattedPriceDate}` : ''}
-          </p>
-          {/* tcgcsv lists English sealed products only — an IT/JA item is priced
-              off the English product. The user accepted the estimate on the
-              condition that it is labelled as one. */}
-          {form.language !== 'EN' && (
-            <p className="text-xs text-warning">{t('f_priceEstimateLangWarn')}</p>
-          )}
-        </>
+        <p className="text-xs text-warning">
+          {t('f_priceEstimateEbay')}
+          {ebaySample != null ? ` · ${ebaySample} ${t('f_estimateListings')}` : ''}
+          {formattedPriceDate ? ` ${formattedPriceDate}` : ''}
+        </p>
       )}
       {!priceLoading && (showManual || showNoPrice) && (
         <p className="text-xs text-muted">

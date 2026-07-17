@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { formatEUR } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 
 export type SealedSearchResult = {
@@ -12,7 +11,7 @@ export type SealedSearchResult = {
   matchLevel: 'exact' | 'fuzzy'
 }
 
-export function SealedSearch({ onPick }: { onPick: (r: SealedSearchResult) => void }) {
+export function SealedSearch({ onPick }: { onPick: (r: SealedSearchResult, query: string) => void }) {
   const t = useT()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SealedSearchResult[]>([])
@@ -64,7 +63,10 @@ export function SealedSearch({ onPick }: { onPick: (r: SealedSearchResult) => vo
               <button
                 type="button"
                 onClick={() => {
-                  onPick(r)
+                  // Pass the typed query too: the eBay estimate searches with the
+                  // Italian "type + set" term the user wrote, not the English
+                  // catalogue name (which has poor eBay IT recall).
+                  onPick(r, query.trim())
                   setQuery('')
                   setResults([])
                 }}
@@ -76,9 +78,8 @@ export function SealedSearch({ onPick }: { onPick: (r: SealedSearchResult) => vo
                 )}
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium text-fg truncate">{r.name}</span>
-                  {r.priceEur != null && (
-                    <span className="block text-xs text-muted">{formatEUR(r.priceEur)}</span>
-                  )}
+                  {/* No price in the list: the tcgcsv US figure is misleading and
+                      the real EU estimate is fetched from eBay once you pick. */}
                 </span>
               </button>
             </li>

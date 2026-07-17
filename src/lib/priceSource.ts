@@ -110,8 +110,10 @@ export function priceSourceOf(i: PriceSourceInput): PriceSource {
     return { kind: 'cardmarket', langMismatch: false }
   }
   if (auto && i.itemType === 'SEALED' && isTcgcsvId(i.externalId)) {
-    // tcgcsv only carries English products, so any other language is the English price.
-    return { kind: 'estimate', langMismatch: (i.language ?? 'EN') !== 'EN' }
+    // The sealed AUTO price is now the live eBay EU median (tcgcsv only fills in
+    // when eBay finds nothing), so there is no "priced off the English product"
+    // caveat any more — it is a European estimate.
+    return { kind: 'estimate', langMismatch: false }
   }
   if (i.marketValue > 0) return { kind: 'manual', langMismatch: false }
   return { kind: 'none', langMismatch: false }

@@ -38,13 +38,9 @@ describe('priceSourceOf', () => {
       .toEqual({ kind: 'estimate', langMismatch: false })
   })
 
-  it('flags a language mismatch: tcgcsv has no IT/JA sealed products, so the figure is the English one', () => {
-    expect(priceSourceOf({ ...base, itemType: 'SEALED', externalId: 'tcgcsv:1:2', marketValue: 810, marketValueSource: 'AUTO', language: 'IT' }).langMismatch).toBe(true)
-    expect(priceSourceOf({ ...base, itemType: 'SEALED', externalId: 'tcgcsv:1:2', marketValue: 810, marketValueSource: 'AUTO', language: 'JA' }).langMismatch).toBe(true)
-  })
-
-  it('treats a missing language on a sealed estimate as English rather than warning', () => {
-    expect(priceSourceOf({ ...base, itemType: 'SEALED', externalId: 'tcgcsv:1:2', marketValue: 810, marketValueSource: 'AUTO', language: null }).langMismatch).toBe(false)
+  it('no longer flags a language mismatch — the sealed estimate is now the eBay EU median, not the US English product', () => {
+    expect(priceSourceOf({ ...base, itemType: 'SEALED', externalId: 'tcgcsv:1:2', marketValue: 810, marketValueSource: 'AUTO', language: 'IT' }).langMismatch).toBe(false)
+    expect(priceSourceOf({ ...base, itemType: 'SEALED', externalId: 'tcgcsv:1:2', marketValue: 810, marketValueSource: 'AUTO', language: 'JA' }).langMismatch).toBe(false)
   })
 
   it('a graded slab is never automatic, even with a card id', () => {
@@ -74,9 +70,9 @@ describe('priceSourceOf — the EU reference chip', () => {
     expect(priceSourceOf({ ...sealedEstimate, euReference: eu('WEAK', 95) }))
       .toEqual({ kind: 'euReference', langMismatch: false, strength: 'WEAK' })
   })
-  it('NONE falls through to the US-estimate chip', () => {
+  it('NONE falls through to the eBay-EU-estimate chip', () => {
     expect(priceSourceOf({ ...sealedEstimate, euReference: eu('NONE', null) }))
-      .toEqual({ kind: 'estimate', langMismatch: true })
+      .toEqual({ kind: 'estimate', langMismatch: false })
   })
   it('a reference with no display value yet falls through to the estimate', () => {
     expect(priceSourceOf({ ...sealedEstimate, euReference: eu('WEAK', null) }).kind).toBe('estimate')
