@@ -61,3 +61,6 @@ dist/
 
 # Verification screenshots at repo root
 /*.png
+
+# Real eBay API sample — reference only, not distributed (eBay ToS)
+docs/reference/ebay-browse-sample.json

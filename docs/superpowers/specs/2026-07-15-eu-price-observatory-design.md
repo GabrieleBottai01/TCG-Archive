@@ -156,10 +156,23 @@ Alert e notifiche · prodotti non posseduti · Cardmarket · carte singole (hann
 
 ## Rischi
 
+### Verifica ToS eBay — letta il 2026-07-17 (account dev attivo, `developer.ebay.com/join/api-license-agreement`)
+
+La premessa "retention a 30 giorni" era **sbagliata**: quella clausola non esiste. I fatti reali:
+
+- **Retention** = *"quando un contenuto eBay non è più pubblicamente disponibile, devi cancellarlo dalla tua app"* — legata alla vita del listing, non a un orologio fisso. Il roll-up è compatibile, **ma va stretta una vite**: cancellare l'`EbayObservation` quando il listing sparisce (`goneAt`), non tenerla 30 giorni. → **modifica al Task 6.**
+- **"Restricted APIs"** = quelle su tendenze di mercato/prezzi/volumi; e *per sviluppare pricing tool serve il consenso scritto preventivo di eBay*. Il nostro progetto **è** un pricing tool. La Browse API dà singoli annunci (probabilmente non "Restricted"), ma lo scopo è proprio ciò che la clausola regola. Zona grigia.
+- eBay **rivendica la proprietà** di ogni opera derivata dai suoi dati (quindi anche la mediana calcolata).
+
+**Decisione di Gabriele (2026-07-17): procedere per USO PERSONALE.** L'app resta privata, valorizza solo la sua collezione, non distribuisce né vende dati, niente bulk download — l'uso più difendibile. Se un giorno diventasse un prodotto per altri, servirebbe il consenso scritto di eBay. (Nessuno dei due è un avvocato; è una decisione consapevole di rischio, non un via libera legale.)
+
+### Rischi residui
+
 | Rischio | Stato |
 |---|---|
-| 🔴 **ToS eBay: retention dei dati a 30 giorni** | **Bloccante, da confermare dall'utente** appena l'account dev è attivo. Il roll-up dovrebbe reggere (gli aggregati sono dato derivato, non dati eBay) ma **la clausola non è stata letta**: developer.ebay.com blocca l'accesso automatico |
-| ⚠️ Tutti i dati eBay non verificati | Rate limit, `EBAY_IT` come marketplace valido, gratuità: tutto da frammenti di ricerca. **Da confermare col primo accesso reale** |
+| ⚠️ Zona grigia "pricing tool" | Mitigata: uso personale, non distribuito. Rivedere se mai diventa un prodotto per terzi |
+| Retention: cancellare il grezzo quando il listing sparisce | **Requisito sul Task 6** — non tenere 30 giorni un annuncio non più pubblico |
+| ⚠️ Dati eBay ancora da verificare | Rate limit e **quantità disponibile nei risultati di ricerca** (segnale vendite confermate): da confermare con una chiamata reale |
 | Volume insufficiente su eBay | Molti prodotti non avranno mai abbastanza annunci → `NONE`, e il chip lo dice. Non si inventa un numero |
 | Il matcher sbaglia | Mitigato scartando nel dubbio. **Va testato su titoli eBay reali**, non su mock: stamattina i mock hanno nascosto lo stesso bug tre volte |
 | Rodaggio 4–8 settimane | Dichiarato in UI, non nascosto |
