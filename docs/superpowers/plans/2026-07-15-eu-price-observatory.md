@@ -238,18 +238,30 @@ git commit -m "feat(observatory): daily reference, strength and display-value ma
 
 ---
 
-### Task 5: eBay client — ⛔ DO NOT WRITE UNTIL TASK 1 IS DONE
+### Task 1 verification — RESULT (2026-07-17, real Browse call saved to `docs/reference/ebay-browse-sample.json`)
+
+The real `item_summary/search` response settled every open question, and two answers change the design:
+
+1. **No quantity/availability in the search response.** `itemSummary` has NO `estimatedAvailabilities` / `availableQuantity` — only `availableCoupons` (unrelated). **The confirmed-sale-via-quantity-drop signal is therefore NOT free**: it needs a per-listing detail call (`itemHref` → getItem). That is expensive (hundreds of calls/day), timeout-hostile (30s), and **low-yield** — most sealed listings are individuals selling qty 1, where quantity never drops, it just disappears. → **DECISION: defer the quantity-drop signal. v1 uses only the "disappeared" signal (`quickSale`), which is free from search alone.** `EbayObservation.quantity` stays in the schema (nullable) for the later enhancement.
+
+2. **Structured fields beat title parsing, and catch what the matcher misses.** The response carries `conditionId`, `buyingOptions`, `price.currency`, `listingMarketplaceId`, `categories`, `sellerAccountType`. Use them as the PRIMARY gate, with `matchListing` as the title backstop:
+   - **`conditionId === '1000'`** (Sigillato/Nuovo) is the sealed gate. In the 3-item sample it already caught a listing titled *"...Sealed OVP English..."* that carries `conditionId 3000` (used) — the title matcher would have ACCEPTED it. Structured condition overrides the title.
+   - **`buyingOptions`** must include `FIXED_PRICE` and the listing must NOT be `AUCTION` — an auction's current price is not a sale price.
+   - **`price.currency === 'EUR'`** natively on `EBAY_IT` (confirmed). No FX conversion for eBay; `getUsdToEurRate()` is only for tcgcsv.
+   - `listingMarketplaceId` confirms the site; `sellerAccountType` (INDIVIDUAL/BUSINESS) is kept for the future quantity-drop signal.
+
+Also confirmed: EUR prices, no language field (title-only, as the matcher assumes), preorders and emoji/flag-spam titles appear immediately (the matcher already rejects preorders), and one query returns many different sets (the set-name requirement is essential). Retention rule from the ToS: delete raw observations when the listing is no longer public — see the spec; prune promptly on `goneAt`, not at a fixed 30 days.
+
+### Task 5: eBay client — now writable (build from the real sample)
 
 **Files (intended):** `src/lib/observatory/ebay.ts` + tests.
 
-**Why there is no code here:** the request shape, the auth flow, the response fields and the availability field are all unverified. Writing them now would be fabrication.
-
-**Once Task 1 Step 2 has produced `docs/reference/ebay-browse-sample.json`, this task must:**
-- Build the client from the **real** sample, mirroring `src/lib/pricing/tcgdex.ts`: `getJson` helper, errors swallowed to `null`, module-scope token cache, a `__reset*` export for tests.
-- Fixtures must be **copied from the real sample**, never invented.
-- Handle OAuth application-token acquisition + refresh.
-- Expose: `searchSealed(query: string, marketplace: 'EBAY_IT' | 'EBAY_DE'): Promise<EbayListing[]>` where `EbayListing` carries id, title, priceEur, currency, and available quantity **if and only if** Task 1 confirmed it is in the search response.
-- Convert to EUR with the existing `getUsdToEurRate()` only if a marketplace returns non-EUR; `EBAY_IT`/`EBAY_DE` should be EUR natively — **confirm from the sample rather than assuming.**
+**Build the client from `docs/reference/ebay-browse-sample.json`, mirroring `src/lib/pricing/tcgdex.ts`:**
+- `getJson` helper, errors swallowed to `null`, module-scope token cache, a `__reset*` export for tests.
+- **Fixtures copied from the real sample, never invented.**
+- OAuth: client-credentials grant (`grant_type=client_credentials`, scope `https://api.ebay.com/oauth/api_scope`), token cached and refreshed on expiry. Credentials from env (`EBAY_APP_ID`, `EBAY_CERT_ID`) — never committed.
+- Expose `searchSealed(query, marketplace): Promise<EbayListing[]>` where `EbayListing` carries: `ebayItemId`, `title`, `priceEur` (from `price.value`, currency asserted EUR), `conditionId`, `buyingOptions`, `sellerAccountType`. **No quantity field** (not in the response).
+- Header `X-EBAY-C-MARKETPLACE-ID: EBAY_IT | EBAY_DE`.
 
 ---
 
@@ -257,13 +269,13 @@ git commit -m "feat(observatory): daily reference, strength and display-value ma
 
 **Files (intended):** `netlify/functions/observatory-daily.mts`, `src/lib/observatory/run.ts` + tests.
 
-**Intended behaviour:**
+**Intended behaviour (revised after the Task 1 result):**
 - Watchlist: `SELECT DISTINCT externalId, language FROM Item WHERE itemType = 'SEALED' AND externalId LIKE 'tcgcsv:%'`.
-- For each (product, lang): search both marketplaces, `matchListing` each result, drop rejects.
-- Upsert observations by `(ebayItemId, marketplace)`: update `lastSeenAt`; **if quantity decreased since the last run → a confirmed sale at that price**.
-- Set `goneAt` on listings not seen this run; a listing gone within 48h of `firstSeenAt` is a `quickSale`.
+- For each (product, lang): search both marketplaces. **Gate each result with the structured fields FIRST** — `conditionId === '1000'`, `buyingOptions` includes `FIXED_PRICE` and not `AUCTION`, `price.currency === 'EUR'` — then `matchListing(title, …)` as the title backstop. Drop anything either gate rejects.
+- Upsert observations by `(ebayItemId, marketplace)`: update `lastSeenAt`. **No quantity-drop sale detection in v1** (quantity is not in the search response — deferred).
+- Set `goneAt` on listings not seen this run; a listing gone within 48h of `firstSeenAt` is a `quickSale` — this is v1's only sale signal.
 - Recompute today's `PriceReference` per (product, lang).
-- **Prune `EbayObservation` older than 30 days** — this is what keeps Neon's 0.5 GB and the retention rule satisfied. It is not optional.
+- **Delete `EbayObservation` rows promptly once `goneAt` is set** (the ToS requires deleting eBay content when the listing is no longer public), and prune anything older than 30 days as a backstop. Not optional — it satisfies both the ToS and Neon's 0.5 GB.
 - **Respect the 30s timeout**: bound concurrency and, if the watchlist cannot be covered in one run, process it in slices across days (record the cursor) rather than overrunning.
 
 `netlify.toml` gains a `[functions."observatory-daily"] schedule = "@daily"`.

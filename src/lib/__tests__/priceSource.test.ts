@@ -1,7 +1,21 @@
 import { describe, it, expect } from 'vitest'
-import { priceSourceOf, isTcgcsvId } from '@/lib/priceSource'
+import { priceSourceOf, isTcgcsvId, effectiveValue, type EuReference } from '@/lib/priceSource'
 
 const base = { itemType: 'RAW', externalId: null, marketValue: 0, marketValueSource: null }
+
+const sealedEstimate = {
+  itemType: 'SEALED',
+  externalId: 'tcgcsv:1:2',
+  marketValue: 250, // the US estimate stored on the item
+  marketValueSource: 'AUTO',
+  language: 'IT',
+}
+const eu = (strength: EuReference['strength'], displayValue: number | null): EuReference => ({
+  strength,
+  displayValue,
+  sampleSize: 12,
+  sales: 3,
+})
 
 describe('isTcgcsvId', () => {
   it('recognises a sealed tcgcsv reference', () => {
@@ -48,5 +62,47 @@ describe('priceSourceOf', () => {
 
   it('AUTO without an externalId cannot claim Cardmarket', () => {
     expect(priceSourceOf({ ...base, marketValue: 10, marketValueSource: 'AUTO' }).kind).toBe('manual')
+  })
+})
+
+describe('priceSourceOf — the EU reference chip', () => {
+  it('a STRONG reference outranks the US estimate as the chip source', () => {
+    expect(priceSourceOf({ ...sealedEstimate, euReference: eu('STRONG', 95) }))
+      .toEqual({ kind: 'euReference', langMismatch: false, strength: 'STRONG' })
+  })
+  it('a WEAK reference still shows its own chip (amber), not the estimate chip', () => {
+    expect(priceSourceOf({ ...sealedEstimate, euReference: eu('WEAK', 95) }))
+      .toEqual({ kind: 'euReference', langMismatch: false, strength: 'WEAK' })
+  })
+  it('NONE falls through to the US-estimate chip', () => {
+    expect(priceSourceOf({ ...sealedEstimate, euReference: eu('NONE', null) }))
+      .toEqual({ kind: 'estimate', langMismatch: true })
+  })
+  it('a reference with no display value yet falls through to the estimate', () => {
+    expect(priceSourceOf({ ...sealedEstimate, euReference: eu('WEAK', null) }).kind).toBe('estimate')
+  })
+  it('no reference at all is just the estimate', () => {
+    expect(priceSourceOf({ ...sealedEstimate, euReference: null }).kind).toBe('estimate')
+  })
+})
+
+describe('effectiveValue — only a STRONG reference is allowed to move the money', () => {
+  it('STRONG substitutes the EU display value for the US estimate', () => {
+    expect(effectiveValue({ ...sealedEstimate, euReference: eu('STRONG', 95) })).toBe(95)
+  })
+  it('WEAK does NOT substitute — a weak number moving the balance is the whole thing to avoid', () => {
+    expect(effectiveValue({ ...sealedEstimate, euReference: eu('WEAK', 95) })).toBe(250)
+  })
+  it('NONE keeps the US estimate', () => {
+    expect(effectiveValue({ ...sealedEstimate, euReference: eu('NONE', null) })).toBe(250)
+  })
+  it('a STRONG reference with a null display value cannot substitute', () => {
+    expect(effectiveValue({ ...sealedEstimate, euReference: eu('STRONG', null) })).toBe(250)
+  })
+  it('a non-sealed item is never touched by an EU reference', () => {
+    expect(effectiveValue({ ...base, marketValue: 5, euReference: eu('STRONG', 95) })).toBe(5)
+  })
+  it('no reference keeps the stored value', () => {
+    expect(effectiveValue({ ...sealedEstimate })).toBe(250)
   })
 })

@@ -1,15 +1,29 @@
+import { effectiveValue, type EuReference } from '@/lib/priceSource'
+
 export type ValueItem = {
   quantity: number; purchasePrice: number; marketValue: number
   game?: string; itemType?: string; condition?: string | null
   setName?: string | null; name?: string; language?: string | null; createdAt?: string
+  externalId?: string | null; euReference?: EuReference | null
 }
+
+/**
+ * The per-unit value the collection counts: the stored market value, unless a
+ * STRONG EU reference has earned the right to replace it (see effectiveValue).
+ * Every money figure below goes through here so a STRONG reference reaches the
+ * item difference AND the collection balance in one place.
+ */
+function valueOf(i: ValueItem): number {
+  return effectiveValue({ itemType: i.itemType ?? '', externalId: i.externalId, marketValue: i.marketValue, euReference: i.euReference })
+}
+
 export function itemDifference(i: ValueItem): number {
-  return (i.marketValue - i.purchasePrice) * i.quantity
+  return (valueOf(i) - i.purchasePrice) * i.quantity
 }
 export type Totals = { totalValue: number; totalCost: number; profitLoss: number; itemCount: number; pieceCount: number }
 export function collectionTotals(items: ValueItem[]): Totals {
   const t = items.reduce((acc, i) => {
-    acc.totalValue += i.marketValue * i.quantity
+    acc.totalValue += valueOf(i) * i.quantity
     acc.totalCost += i.purchasePrice * i.quantity
     acc.pieceCount += i.quantity
     return acc
@@ -27,8 +41,8 @@ export function filterItems<T extends ValueItem>(items: T[], f: Filters): T[] {
     if (f.condition && i.condition !== f.condition) return false
     if (f.setName && !(i.setName ?? '').toLowerCase().includes(f.setName.toLowerCase())) return false
     if (f.language && !(i.language ?? '').toLowerCase().includes(f.language.toLowerCase())) return false
-    if (f.minValue != null && i.marketValue < f.minValue) return false
-    if (f.maxValue != null && i.marketValue > f.maxValue) return false
+    if (f.minValue != null && valueOf(i) < f.minValue) return false
+    if (f.maxValue != null && valueOf(i) > f.maxValue) return false
     if (f.pl) {
       const d = itemDifference(i)
       if (f.pl === 'gain' && d <= 0) return false
@@ -55,7 +69,7 @@ export function sortItems<T extends ValueItem>(items: T[], sort: Sort): T[] {
     switch (sort.key) {
       case 'name': c = ci(a.name ?? '', b.name ?? ''); break
       case 'game': c = ci(a.game ?? '', b.game ?? ''); break
-      case 'marketValue': c = a.marketValue - b.marketValue; break
+      case 'marketValue': c = valueOf(a) - valueOf(b); break
       case 'quantity': c = a.quantity - b.quantity; break
       case 'difference': c = itemDifference(a) - itemDifference(b); break
       case 'createdAt': c = (a.createdAt ?? '').localeCompare(b.createdAt ?? ''); break
@@ -76,7 +90,7 @@ export function groupTotals<T extends ValueItem>(items: T[], keyFn: (i: T) => st
   return [...map.entries()].map(([key, arr]) => ({ key, totals: collectionTotals(arr) }))
 }
 export function topByValue<T extends ValueItem>(items: T[], n: number): T[] {
-  return [...items].sort((a, b) => b.marketValue * b.quantity - a.marketValue * a.quantity).slice(0, n)
+  return [...items].sort((a, b) => valueOf(b) * b.quantity - valueOf(a) * a.quantity).slice(0, n)
 }
 export function topByDifference<T extends ValueItem>(items: T[], n: number, dir: SortDir): T[] {
   const s = [...items].sort((a, b) => itemDifference(b) - itemDifference(a)) // gains first

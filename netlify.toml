@@ -11,3 +11,9 @@
 # Official Next.js runtime: turns SSR pages and API routes into Netlify Functions.
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# EU price observatory: poll eBay once a day for the sealed watchlist.
+# The handler is netlify/functions/observatory-daily.mts. Cost is ~0.2 credits/mo
+# (1/75 of a deploy); it self-limits to a 25s budget under the 30s ceiling.
+[functions."observatory-daily"]
+  schedule = "@daily"

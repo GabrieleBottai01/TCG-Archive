@@ -116,3 +116,32 @@ model Item {
 
   @@index([userId])
 }
+
+model EbayObservation {          // grezzo — potato oltre i 30 giorni
+  id           String    @id @default(cuid())
+  productKey   String              // "tcgcsv:23234:517001"
+  ebayItemId   String
+  marketplace  String              // EBAY_IT | EBAY_DE
+  lang         String              // IT | EN | JA — lingua del PRODOTTO, non del sito
+  priceEur     Float
+  quantity     Int?                // il calo tra due osservazioni = vendita confermata
+  firstSeenAt  DateTime
+  lastSeenAt   DateTime
+  goneAt       DateTime?
+  confidence   Float
+  @@unique([ebayItemId, marketplace])
+  @@index([productKey, lang, lastSeenAt])
+}
+
+model PriceReference {            // derivato dell'utente — permanente, pochi MB/anno
+  id             String   @id @default(cuid())
+  productKey     String
+  lang           String
+  day            DateTime @db.Date
+  medianEur      Float?
+  sampleSize     Int
+  confirmedSales Int              // da calo di quantità
+  quickSales     Int              // spariti in <48h
+  strength       String           // STRONG | WEAK | NONE
+  @@unique([productKey, lang, day])
+}

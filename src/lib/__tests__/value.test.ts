@@ -11,6 +11,25 @@ describe('itemDifference', () => {
   })
 })
 
+describe('a STRONG EU reference moves the money; a WEAK one does not', () => {
+  // A sealed item whose stored US estimate is 250 but whose EU reference is 95.
+  const sealed = {
+    quantity: 2, purchasePrice: 100, marketValue: 250,
+    itemType: 'SEALED', externalId: 'tcgcsv:1:2', language: 'IT',
+  }
+  const strong = { ...sealed, euReference: { strength: 'STRONG' as const, displayValue: 95, sampleSize: 12, sales: 3 } }
+  const weak = { ...sealed, euReference: { strength: 'WEAK' as const, displayValue: 95, sampleSize: 4, sales: 0 } }
+
+  it('itemDifference uses the EU value when STRONG', () => {
+    expect(itemDifference(strong)).toBe((95 - 100) * 2)  // -10, not (250-100)*2
+    expect(itemDifference(weak)).toBe((250 - 100) * 2)   // WEAK stays on the estimate
+  })
+  it('collectionTotals value reflects the EU value only when STRONG', () => {
+    expect(collectionTotals([strong]).totalValue).toBe(95 * 2)
+    expect(collectionTotals([weak]).totalValue).toBe(250 * 2)
+  })
+})
+
 describe('collectionTotals', () => {
   it('sums value, cost, P/L and counts', () => {
     const t = collectionTotals([A, B])

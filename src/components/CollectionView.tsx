@@ -12,6 +12,7 @@ import { ItemImage } from '@/components/ItemImage'
 import { GameBadge } from '@/components/GameBadge'
 import { PriceSourceChip } from '@/components/PriceSourceChip'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { effectiveValue, type EuReference } from '@/lib/priceSource'
 
 // Mirrors the Prisma Item shape (plain object, serialized from server)
 export type PlainItem = {
@@ -36,6 +37,8 @@ export type PlainItem = {
   userId: string
   createdAt: string
   updatedAt: string
+  /** Attached by the server read path for sealed tcgcsv items; null otherwise. */
+  euReference?: EuReference | null
 }
 
 // --- View toggle external store (no setState-in-effect, no hydration mismatch) ---
@@ -237,7 +240,7 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
                   <span className="text-xs text-muted">{t('type_' + item.itemType)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-fg tabular-nums">{formatEUR(item.marketValue)}</span>
+                  <span className="text-sm font-semibold text-fg tabular-nums">{formatEUR(effectiveValue(item))}</span>
                   <Money value={itemDifference(item)} signed />
                 </div>
                 {/* Says how much to trust the figure above it. */}
@@ -311,7 +314,7 @@ export function CollectionView({ initialItems }: CollectionViewProps) {
                   <td className="py-2 pr-4 text-right text-fg tabular-nums">{formatEUR(item.purchasePrice)}</td>
                   <td className="py-2 pr-4 text-right text-fg tabular-nums">
                     <span className="inline-flex flex-col items-end gap-0.5">
-                      {formatEUR(item.marketValue)}
+                      {formatEUR(effectiveValue(item))}
                       <PriceSourceChip item={item} />
                     </span>
                   </td>
