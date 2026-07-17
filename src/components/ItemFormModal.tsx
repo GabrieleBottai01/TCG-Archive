@@ -310,8 +310,10 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     setPriceDate(null)
     setEbaySample(null)
 
-    // The real value is the live median of current eBay IT+DE listings — the
-    // European market, not the tcgcsv US figure. tcgcsv is only the fallback.
+    // The value is the live median of current eBay IT+DE listings — the European
+    // market. NO tcgcsv fallback: when eBay has nothing, leave the value MANUAL
+    // rather than fill in the wildly-wrong US figure (that fallback was the
+    // source of the €172-for-a-€45-tin errors).
     const controller = new AbortController()
     priceAbortRef.current = controller
     setPriceLoading(true)
@@ -327,7 +329,6 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
         eur = data.eur
         sample = data.sampleSize
       }
-      if (eur == null) eur = r.priceEur // eBay found nothing → tcgcsv fallback
       // A newer pick (or a clear) landed while this was in flight: it wins.
       if (priceReqIdRef.current !== reqId) return
       if (eur != null) {

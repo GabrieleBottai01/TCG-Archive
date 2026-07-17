@@ -18,10 +18,27 @@ import { computeDailyReference } from '@/lib/observatory/reference'
 const MARKETPLACES: readonly Marketplace[] = ['EBAY_IT', 'EBAY_DE']
 
 export type EbayEstimate = {
-  /** Median EUR of the matching sealed listings, or null when none matched. */
+  /** Trimmed-median EUR of the matching sealed listings, or null when none matched. */
   eur: number | null
-  /** How many listings survived both gates — the estimate's confidence. */
+  /** How many listings survived both gates AND the outlier trim — the confidence. */
   sampleSize: number
+}
+
+// A listing more than this many times off the rough median is not the same
+// product at the same grade: a €500 graded slab or a €5 empty shell that slipped
+// a title rule, or a multi-item lot. Trim them before taking the real median so
+// one bad listing cannot drag the estimate. Only applied when there are enough
+// listings for a rough median to mean anything.
+const OUTLIER_FACTOR = 2.5
+const MIN_FOR_TRIM = 4
+
+function trimOutliers(prices: number[]): number[] {
+  if (prices.length < MIN_FOR_TRIM) return prices
+  const sorted = [...prices].sort((a, b) => a - b)
+  const rough = sorted[Math.floor(sorted.length / 2)]
+  if (rough <= 0) return sorted
+  const kept = sorted.filter((p) => p >= rough / OUTLIER_FACTOR && p <= rough * OUTLIER_FACTOR)
+  return kept.length > 0 ? kept : sorted
 }
 
 /**
@@ -35,12 +52,13 @@ export function estimateFromListings(
   lang: string,
 ): EbayEstimate {
   const product = { name, lang }
-  const prices: number[] = []
+  const matched: number[] = []
   for (const { listing, marketplace } of listings) {
     if (!gateListing(listing).ok) continue
     if (!matchListing(listing.title, product, marketplace).ok) continue
-    prices.push(listing.priceEur)
+    matched.push(listing.priceEur)
   }
+  const prices = trimOutliers(matched)
   const ref = computeDailyReference(prices.map((p) => ({ priceEur: p, confirmedSale: false, quickSale: false })))
   return { eur: ref.medianEur, sampleSize: ref.sampleSize }
 }
