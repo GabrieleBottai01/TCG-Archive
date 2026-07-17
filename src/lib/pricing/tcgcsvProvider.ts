@@ -17,8 +17,12 @@ export class TcgcsvProvider implements PriceProvider {
   }
   async fetchPrice(i: PriceInput): Promise<PriceResult | null> {
     if (!this.supports(i)) return null
-    if (!i.name || !i.name.trim()) return null
-    const est = await liveEbayEstimate(i.name, i.language ?? 'IT')
+    // The Italian "type + set" term drives eBay recall. New items carry it in
+    // priceQuery (name holds the English catalogue name); pre-migration items
+    // have it in name with priceQuery null — hence priceQuery ?? name.
+    const query = i.priceQuery ?? i.name
+    if (!query || !query.trim()) return null
+    const est = await liveEbayEstimate(query, i.language ?? 'IT')
     return est.eur != null ? { value: est.eur, source: 'AUTO' } : null
   }
 }

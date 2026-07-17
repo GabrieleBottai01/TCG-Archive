@@ -6,6 +6,9 @@ export type PriceInput = {
   // name must be the Italian "type + set" string (e.g. "ETB destino di paldea")
   // for the title matcher to work, which is exactly what the item name holds.
   name?: string | null
+  // The Italian eBay term when the display name is the English catalogue name.
+  // Every eBay-search site uses `priceQuery ?? name`; null falls back to name.
+  priceQuery?: string | null
   language?: string | null
 }
 export type PriceResult = { value: number; source: 'AUTO' | 'MANUAL' }
