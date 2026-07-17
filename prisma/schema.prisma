@@ -101,6 +101,7 @@ model Item {
   cardNumber           String?
   language             String?
   externalId           String?
+  priceQuery           String?         // Italian "type + set" term for eBay recall; null = use name
   imageUrl             String?
   condition            Condition?
   gradingCompany       GradingCompany?

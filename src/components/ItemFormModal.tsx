@@ -23,6 +23,7 @@ type FormState = {
   cardNumber: string
   language: string
   externalId: string
+  priceQuery: string
   imageUrl: string
   condition: string
   gradingCompany: string
@@ -65,6 +66,7 @@ function seedForm(item?: PlainItem): FormState {
       cardNumber: item.cardNumber ?? '',
       language: normalizeLang(item.language),
       externalId: item.externalId ?? '',
+      priceQuery: item.priceQuery ?? '',
       imageUrl: item.imageUrl ?? '',
       condition: item.condition ?? '',
       gradingCompany: item.gradingCompany ?? '',
@@ -84,6 +86,7 @@ function seedForm(item?: PlainItem): FormState {
     cardNumber: '',
     language: 'IT',
     externalId: '',
+    priceQuery: '',
     imageUrl: '',
     condition: '',
     gradingCompany: '',
@@ -291,14 +294,15 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
 
   const handlePickSealed = async (r: SealedSearchResult, query: string) => {
     const reqId = invalidatePriceFetch()
-    // Keep the Italian "type + set" the user typed as the name, NOT the English
-    // catalogue name: eBay IT recall (for the estimate now, and the refresh /
-    // observatory later) depends on the Italian term.
+    // name = the ENGLISH catalogue name (what the user sees); priceQuery = the
+    // Italian "type + set" the user typed, which drives eBay recall for the
+    // estimate now and the refresh / observatory later.
     const searchName = query || r.name
     const lang = form.language || 'IT'
     setForm((prev) => ({
       ...prev,
-      name: searchName,
+      name: r.name,
+      priceQuery: query || '',
       imageUrl: r.imageUrl ?? '',
       externalId: r.externalId,
       // Start MANUAL at 0; the eBay estimate below promotes it to AUTO.
@@ -397,6 +401,8 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       condition: form.itemType === 'RAW' ? (form.condition || null) : null,
       // Keep the externalId only for auto-priced items (raw card / sealed product)
       externalId: autoEligible ? (form.externalId.trim() || null) : null,
+      // Only meaningful for sealed products; null for everything else so an edit clears it.
+      priceQuery: autoEligible && form.itemType === 'SEALED' ? (form.priceQuery.trim() || null) : null,
       // imageUrl is sent for ALL types — real URL or null (never '')
       imageUrl: form.imageUrl.trim() || null,
     }

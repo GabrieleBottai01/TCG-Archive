@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
         itemType: it.itemType,
         externalId: it.externalId,
         name: it.name,
+        priceQuery: it.priceQuery,
         language: it.language,
       }
       const r = await pickProvider(input).fetchPrice(input)
