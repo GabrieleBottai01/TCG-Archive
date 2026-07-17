@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { collectionTotals, groupTotals, topByValue, topByDifference, averageValuePerPiece, itemDifference } from '@/lib/value'
+import { effectiveValue } from '@/lib/priceSource'
 import { formatEUR } from '@/lib/format'
 import { Money } from '@/components/Money'
 import { SummaryCard } from '@/components/SummaryCard'
@@ -259,7 +260,7 @@ export function Dashboard({ items }: DashboardProps) {
                     <GameBadge game={item.game ?? ''} />
                   </div>
                   <span className="font-semibold text-fg text-sm tabular-nums shrink-0">
-                    {formatEUR(item.marketValue * item.quantity)}
+                    {formatEUR(effectiveValue(item) * item.quantity)}
                   </span>
                 </div>
               ))}
