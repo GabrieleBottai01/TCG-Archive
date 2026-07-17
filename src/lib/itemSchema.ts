@@ -8,6 +8,7 @@ export const itemInputSchema = z.object({
   cardNumber: z.string().optional().nullable(),
   language: z.string().optional().nullable(),
   externalId: z.string().optional().nullable(),
+  priceQuery: z.string().optional().nullable(),
   imageUrl: z.string().url().optional().nullable(),
   condition: z.enum(['POOR', 'PLAYED', 'LIGHT_PLAYED', 'GOOD', 'EXCELLENT', 'NEAR_MINT', 'MINT']).optional().nullable(),
   gradingCompany: z.enum(['PSA', 'BGS', 'CGC']).optional().nullable(),
