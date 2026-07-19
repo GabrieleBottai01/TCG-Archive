@@ -11,6 +11,16 @@ const THROTTLE_MS = 6 * 60 * 60 * 1000
 // an API key, so there is no quota to raise if we get throttled).
 const CONCURRENCY = 5
 
+// Cardtrader's marketplace endpoint allows ~1 req/s. Space out sealed repricings
+// (the only ones that hit Cardtrader) so a bulk refresh does not trip the limit.
+let ctNextAt = 0
+async function ctSpace() {
+  const now = Date.now()
+  const wait = Math.max(0, ctNextAt - now)
+  ctNextAt = Math.max(now, ctNextAt) + 1100
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait))
+}
+
 export async function POST(req: NextRequest) {
   const userId = await requireUserId()
   if (!userId) return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
@@ -33,19 +43,29 @@ export async function POST(req: NextRequest) {
 
   async function reprice(it: (typeof items)[number]) {
     try {
+      if (it.itemType === 'SEALED' && it.externalId?.startsWith('tcgcsv:')) {
+        await ctSpace()
+      }
       const input = {
         game: it.game,
         itemType: it.itemType,
         externalId: it.externalId,
         name: it.name,
         priceQuery: it.priceQuery,
+        cardtraderBlueprintId: it.cardtraderBlueprintId,
         language: it.language,
       }
       const r = await pickProvider(input).fetchPrice(input)
       if (r) {
         await prisma.item.update({
           where: { id: it.id },
-          data: { marketValue: r.value, marketValueUpdatedAt: new Date() },
+          data: {
+            marketValue: r.value,
+            marketValueUpdatedAt: new Date(),
+            autoPriceSource: r.origin ?? null,
+            // Persist a newly-resolved blueprint id so next refresh is a direct lookup.
+            ...(r.cardtraderBlueprintId != null ? { cardtraderBlueprintId: r.cardtraderBlueprintId } : {}),
+          },
         })
         updated++
       } else {
