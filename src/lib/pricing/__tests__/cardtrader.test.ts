@@ -70,6 +70,9 @@ const EXPS: CtExpansion[] = [
 ]
 const BLUEPRINTS: Record<number, CtBlueprint[]> = {
   10: [
+    // Sibling ETB SKU listed BEFORE the plain ETB, deliberately, to prove the
+    // resolver picks by name-closeness and not by API order (see the tie test below).
+    { id: 103, name: 'Paldean Fates Pokémon Center Elite Trainer Box', expansion_id: 10 },
     { id: 100, name: 'Paldean Fates Elite Trainer Box', expansion_id: 10 },
     { id: 101, name: 'Paldean Fates Booster Bundle', expansion_id: 10 },
     { id: 102, name: 'Paldean Fates Booster Box', expansion_id: 10 },
@@ -87,5 +90,12 @@ describe('resolveBlueprint', () => {
   })
   it('returns null when no expansion name is contained in the product name', () => {
     expect(resolveBlueprint('Surging Sparks Elite Trainer Box', EXPS, lookup)).toBeNull()
+  })
+  it('breaks a full-token-overlap tie by closest name (fewest extra tokens), not API order', () => {
+    // Both 103 ("... Pokémon Center Elite Trainer Box") and 100 ("... Elite
+    // Trainer Box") contain every query token, so overlap alone ties them and
+    // 103 (listed first in BLUEPRINTS) would win by API order alone. The
+    // plain ETB (100) must win because it has no extra tokens beyond the query.
+    expect(resolveBlueprint('Paldean Fates Elite Trainer Box', EXPS, lookup)).toBe(100)
   })
 })

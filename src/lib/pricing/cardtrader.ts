@@ -113,12 +113,32 @@ export function lowestSealedEur(
 }
 
 /**
+ * Pure: the expansion whose (normalized) name is contained in the (already
+ * normalized) product name, longest wins. Shared by resolveBlueprint (which
+ * scores blueprints from a pre-loaded list) and resolveBlueprintId (which
+ * uses this first to know which single expansion's blueprints to fetch).
+ */
+function matchExpansion(nameNorm: string, expansions: CtExpansion[]): CtExpansion | null {
+  let exp: CtExpansion | null = null
+  let expLen = 0
+  for (const e of expansions) {
+    const en = normalizeQuery(e.name)
+    if (en && nameNorm.includes(en) && en.length > expLen) { exp = e; expLen = en.length }
+  }
+  return exp
+}
+
+/**
  * Pure: map an English catalogue name (e.g. "Paldean Fates Elite Trainer Box")
  * to a Cardtrader blueprint id. The English name carries both the set and the
  * product type, and Cardtrader blueprint names are English and structured the
  * same way, so: (1) pick the expansion whose name is contained in the product
  * name, longest wins; (2) within it, pick the blueprint matching the product
- * type with the most token overlap. No confident match => null.
+ * type with the closest name — most query-token overlap minus extra
+ * (non-query) tokens, so a sibling SKU with extra qualifiers (e.g. "Pokémon
+ * Center Elite Trainer Box", "... Box Case") loses to the plain match instead
+ * of tying on overlap alone and winning/losing by API order. No confident
+ * match => null.
  */
 export function resolveBlueprint(
   englishName: string,
@@ -129,26 +149,26 @@ export function resolveBlueprint(
   if (!nameNorm) return null
 
   // (1) expansion: longest expansion name contained in the product name.
-  let exp: CtExpansion | null = null
-  let expLen = 0
-  for (const e of expansions) {
-    const en = normalizeQuery(e.name)
-    if (en && nameNorm.includes(en) && en.length > expLen) { exp = e; expLen = en.length }
-  }
+  const exp = matchExpansion(nameNorm, expansions)
   if (!exp) return null
 
-  // (2) blueprint: the requested product type is a hard filter when present.
+  // (2) blueprint: the requested product type is a hard filter when present;
+  // among survivors, prefer the closest name match (overlap - extra tokens).
   const { productTypes } = extractProductType(nameNorm)
   const nameTokens = new Set(nameNorm.split(' ').filter(Boolean))
   let bestId: number | null = null
-  let bestScore = 0
+  let bestScore = -Infinity
   for (const b of blueprintsByExpansion(exp.id)) {
     const bn = normalizeQuery(b.name)
     if (productTypes.length > 0 && !productTypes.some((t) => bn.includes(t))) continue
-    const overlap = bn.split(' ').filter((tok) => tok && nameTokens.has(tok)).length
-    if (overlap > bestScore) { bestScore = overlap; bestId = b.id }
+    const bTokens = bn.split(' ').filter(Boolean)
+    const overlap = bTokens.filter((tok) => nameTokens.has(tok)).length
+    if (overlap === 0) continue
+    const extra = bTokens.filter((tok) => !nameTokens.has(tok)).length
+    const score = overlap - extra
+    if (score > bestScore) { bestScore = score; bestId = b.id }
   }
-  return bestScore > 0 ? bestId : null
+  return bestId
 }
 
 /** Live wrapper: resolve against the cached expansions/blueprints. */
@@ -156,12 +176,7 @@ export async function resolveBlueprintId(englishName: string): Promise<number | 
   const expansions = await getExpansions()
   const nameNorm = normalizeQuery(englishName)
   // Only fetch blueprints for the matched expansion (avoid loading every expansion's blueprints).
-  let exp: CtExpansion | null = null
-  let expLen = 0
-  for (const e of expansions) {
-    const en = normalizeQuery(e.name)
-    if (en && nameNorm.includes(en) && en.length > expLen) { exp = e; expLen = en.length }
-  }
+  const exp = matchExpansion(nameNorm, expansions)
   if (!exp) return null
   const blueprints = await getBlueprints(exp.id)
   return resolveBlueprint(englishName, [exp], () => blueprints)
