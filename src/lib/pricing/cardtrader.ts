@@ -53,7 +53,7 @@ const fresh = (ts: number) => Date.now() - ts < TTL_MS
 
 export async function getPokemonGameId(): Promise<number | null> {
   if (gameIdCache && fresh(gameIdCache.ts)) return gameIdCache.id
-  const games = await ctGet<{ id: number; name: string }[]>('/games')
+  const { array: games } = await ctGet<{ array: { id: number; name: string }[] }>('/games')
   const id = games.find((g) => /pok[eé]mon/i.test(g.name))?.id ?? null
   gameIdCache = { id, ts: Date.now() }
   return id

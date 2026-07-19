@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { lowestSealedEur, type CtProduct } from '@/lib/pricing/cardtrader'
+import { describe, it, expect, vi } from 'vitest'
+import { lowestSealedEur, getPokemonGameId, __resetCardtraderCache, type CtProduct } from '@/lib/pricing/cardtrader'
 
 // Real single listings have bundle_size === null (confirmed in the Task-1 sample);
 // pokemon_language distinguishes markets whose prices differ.
@@ -40,5 +40,25 @@ describe('lowestSealedEur', () => {
 
   it('returns null when nothing qualifies', () => {
     expect(lowestSealedEur([p({ price: { cents: 9000, currency: 'USD' } })])).toEqual({ eur: null, sampleSize: 0 })
+  })
+})
+
+describe('getPokemonGameId', () => {
+  it('reads the { array: [...] } envelope from /games', async () => {
+    __resetCardtraderCache()
+    const prev = process.env.CARDTRADER_JWT
+    process.env.CARDTRADER_JWT = 'test'
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ array: [{ id: 3, name: 'Magic' }, { id: 5, name: 'Pokémon' }] }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      expect(await getPokemonGameId()).toBe(5)
+    } finally {
+      vi.unstubAllGlobals()
+      __resetCardtraderCache()
+      process.env.CARDTRADER_JWT = prev
+    }
   })
 })
