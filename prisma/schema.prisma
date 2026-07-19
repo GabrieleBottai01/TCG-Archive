@@ -102,6 +102,8 @@ model Item {
   language             String?
   externalId           String?
   priceQuery           String?         // Italian "type + set" term for eBay recall; null = use name
+  cardtraderBlueprintId Int?          // resolved Cardtrader blueprint id for direct price lookups
+  autoPriceSource       String?       // 'cardtrader' | 'ebay' — which source produced marketValue
   imageUrl             String?
   condition            Condition?
   gradingCompany       GradingCompany?

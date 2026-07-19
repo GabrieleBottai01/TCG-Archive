@@ -25,6 +25,8 @@ export type PlainItem = {
   language: string | null
   externalId: string | null
   priceQuery: string | null
+  cardtraderBlueprintId: number | null
+  autoPriceSource: string | null
   imageUrl: string | null
   condition: string | null
   gradingCompany: string | null

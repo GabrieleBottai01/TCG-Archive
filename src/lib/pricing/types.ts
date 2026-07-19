@@ -9,9 +9,19 @@ export type PriceInput = {
   // The Italian eBay term when the display name is the English catalogue name.
   // Every eBay-search site uses `priceQuery ?? name`; null falls back to name.
   priceQuery?: string | null
+  // A resolved Cardtrader blueprint id, when known, lets the sealed provider skip
+  // name resolution and price by direct marketplace lookup.
+  cardtraderBlueprintId?: number | null
   language?: string | null
 }
-export type PriceResult = { value: number; source: 'AUTO' | 'MANUAL' }
+export type PriceResult = {
+  value: number
+  source: 'AUTO' | 'MANUAL'
+  /** Which sealed source produced `value` — drives the chip + persisted autoPriceSource. */
+  origin?: 'cardtrader' | 'ebay'
+  /** The blueprint id resolved during this call, so the caller can persist it. */
+  cardtraderBlueprintId?: number | null
+}
 export interface PriceProvider {
   supports(i: PriceInput): boolean
   fetchPrice(i: PriceInput): Promise<PriceResult | null>
