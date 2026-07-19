@@ -102,3 +102,15 @@ describe('effectiveValue — only a STRONG reference is allowed to move the mone
     expect(effectiveValue({ ...sealedEstimate })).toBe(250)
   })
 })
+
+const sealed = { itemType: 'SEALED', externalId: 'tcgcsv:1:2', marketValue: 135, marketValueSource: 'AUTO', language: 'IT' as string | null }
+
+describe('priceSourceOf — Cardtrader', () => {
+  it('is cardtrader when autoPriceSource says so', () => {
+    expect(priceSourceOf({ ...sealed, autoPriceSource: 'cardtrader' }).kind).toBe('cardtrader')
+  })
+  it('is the eBay estimate otherwise', () => {
+    expect(priceSourceOf({ ...sealed, autoPriceSource: 'ebay' }).kind).toBe('estimate')
+    expect(priceSourceOf({ ...sealed, autoPriceSource: null }).kind).toBe('estimate')
+  })
+})

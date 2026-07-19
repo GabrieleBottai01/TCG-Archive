@@ -6,6 +6,7 @@ import { CardSearch, type CardSearchResult } from '@/components/CardSearch'
 import { SealedSearch, type SealedSearchResult } from '@/components/SealedSearch'
 import { useT, useLang, CONDITION_LABELS } from '@/lib/i18n'
 import { priceSourceOf } from '@/lib/priceSource'
+import { formatEUR } from '@/lib/format'
 import { ItemImage } from '@/components/ItemImage'
 import type { PlainItem } from '@/components/CollectionView'
 
@@ -24,6 +25,8 @@ type FormState = {
   language: string
   externalId: string
   priceQuery: string
+  cardtraderBlueprintId: number | null
+  autoPriceSource: string
   imageUrl: string
   condition: string
   gradingCompany: string
@@ -67,6 +70,8 @@ function seedForm(item?: PlainItem): FormState {
       language: normalizeLang(item.language),
       externalId: item.externalId ?? '',
       priceQuery: item.priceQuery ?? '',
+      cardtraderBlueprintId: item.cardtraderBlueprintId ?? null,
+      autoPriceSource: item.autoPriceSource ?? '',
       imageUrl: item.imageUrl ?? '',
       condition: item.condition ?? '',
       gradingCompany: item.gradingCompany ?? '',
@@ -87,6 +92,8 @@ function seedForm(item?: PlainItem): FormState {
     language: 'IT',
     externalId: '',
     priceQuery: '',
+    cardtraderBlueprintId: null,
+    autoPriceSource: '',
     imageUrl: '',
     condition: '',
     gradingCompany: '',
@@ -122,6 +129,13 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
   // How many eBay listings backed the current sealed estimate (null = not an eBay
   // estimate, e.g. the tcgcsv fallback or a card). Drives the "· N annunci" tag.
   const [ebaySample, setEbaySample] = useState<number | null>(null)
+  // The eBay comparison figure returned alongside a Cardtrader-sourced estimate.
+  // Shown next to the Cardtrader price in the modal only — never on a collection
+  // row, and never used to set the value itself.
+  const [ebayCompare, setEbayCompare] = useState<{ eur: number | null; sampleSize: number }>({
+    eur: null,
+    sampleSize: 0,
+  })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -294,10 +308,10 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
 
   const handlePickSealed = async (r: SealedSearchResult, query: string) => {
     const reqId = invalidatePriceFetch()
-    // name = the ENGLISH catalogue name (what the user sees); priceQuery = the
-    // Italian "type + set" the user typed, which drives eBay recall for the
-    // estimate now and the refresh / observatory later.
-    const searchName = query || r.name
+    // name = the ENGLISH catalogue name (what the user sees, and what Cardtrader
+    // matches against); priceQuery = the Italian "type + set" the user typed,
+    // which drives eBay recall for both the estimate and the refresh /
+    // observatory later.
     const lang = form.language || 'IT'
     setForm((prev) => ({
       ...prev,
@@ -305,43 +319,65 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       priceQuery: query || '',
       imageUrl: r.imageUrl ?? '',
       externalId: r.externalId,
-      // Start MANUAL at 0; the eBay estimate below promotes it to AUTO.
+      // Start MANUAL at 0; the estimate below promotes it to AUTO.
       marketValue: 0,
       marketValueSource: 'MANUAL',
+      // Cleared until the estimate below tells us who actually priced it.
+      autoPriceSource: '',
+      cardtraderBlueprintId: null,
     }))
     setPicked(true)
     setAutoPrice(null)
     setPriceDate(null)
     setEbaySample(null)
+    setEbayCompare({ eur: null, sampleSize: 0 })
 
-    // The value is the live median of current eBay IT+DE listings — the European
-    // market. NO tcgcsv fallback: when eBay has nothing, leave the value MANUAL
-    // rather than fill in the wildly-wrong US figure (that fallback was the
-    // source of the €172-for-a-€45-tin errors).
+    // The value is Cardtrader-first (lowest EU listing) with the live eBay IT+DE
+    // median as fallback — see /api/sealed/estimate. NO tcgcsv fallback: when
+    // neither has anything, leave the value MANUAL rather than fill in the
+    // wildly-wrong US figure (that fallback was the source of the
+    // €172-for-a-€45-tin errors). The eBay figure is always returned too, for
+    // the modal's comparison line, regardless of which source wins the value.
     const controller = new AbortController()
     priceAbortRef.current = controller
     setPriceLoading(true)
     try {
       const res = await fetch(
-        `/api/sealed/estimate?name=${encodeURIComponent(searchName)}&lang=${encodeURIComponent(lang)}`,
+        `/api/sealed/estimate?name=${encodeURIComponent(r.name)}&priceQuery=${encodeURIComponent(query || '')}&lang=${encodeURIComponent(lang)}`,
         { signal: controller.signal },
       )
       let eur: number | null = null
-      let sample = 0
+      let source: string | null = null
+      let blueprintId: number | null = null
+      let ebay: { eur: number | null; sampleSize: number } = { eur: null, sampleSize: 0 }
       if (res.ok) {
-        const data = (await res.json()) as { eur: number | null; sampleSize: number }
+        const data = (await res.json()) as {
+          eur: number | null
+          source: string | null
+          cardtraderBlueprintId: number | null
+          ebay: { eur: number | null; sampleSize: number }
+        }
         eur = data.eur
-        sample = data.sampleSize
+        source = data.source
+        blueprintId = data.cardtraderBlueprintId
+        ebay = data.ebay
       }
       // A newer pick (or a clear) landed while this was in flight: it wins.
       if (priceReqIdRef.current !== reqId) return
       if (eur != null) {
-        const price = eur
-        setForm((prev) => ({ ...prev, marketValue: price, marketValueSource: 'AUTO' }))
-        setAutoPrice(price)
+        setForm((prev) => ({
+          ...prev,
+          marketValue: eur as number,
+          marketValueSource: 'AUTO',
+          autoPriceSource: source ?? '',
+          cardtraderBlueprintId: blueprintId,
+        }))
+        setAutoPrice(eur)
         setPriceDate(new Date().toISOString())
-        setEbaySample(sample > 0 ? sample : null)
+        setEbaySample(source === 'ebay' && ebay.sampleSize > 0 ? ebay.sampleSize : null)
       }
+      // The eBay comparison line reads this regardless of which source won.
+      setEbayCompare(ebay)
     } catch {
       // Aborted or network error: leave the value MANUAL at 0, the user can type.
     } finally {
@@ -403,6 +439,10 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       externalId: autoEligible ? (form.externalId.trim() || null) : null,
       // Only meaningful for sealed products; null for everything else so an edit clears it.
       priceQuery: autoEligible && form.itemType === 'SEALED' ? (form.priceQuery.trim() || null) : null,
+      // Which provider actually priced this sealed item ('cardtrader' | 'ebay'), and
+      // the Cardtrader blueprint id it matched — both null for everything else.
+      autoPriceSource: autoEligible && form.itemType === 'SEALED' ? (form.autoPriceSource || null) : null,
+      cardtraderBlueprintId: autoEligible && form.itemType === 'SEALED' ? form.cardtraderBlueprintId : null,
       // imageUrl is sent for ALL types — real URL or null (never '')
       imageUrl: form.imageUrl.trim() || null,
     }
@@ -451,8 +491,10 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
     marketValue: form.marketValue,
     marketValueSource: form.marketValueSource,
     language: form.language || null,
+    autoPriceSource: form.autoPriceSource || null,
   })
   const showCardmarket = source.kind === 'cardmarket'
+  const showCardtrader = source.kind === 'cardtrader'
   const showEstimate = source.kind === 'estimate'
   const showManual = source.kind === 'manual'
   const showNoPrice = source.kind === 'none'
@@ -471,11 +513,23 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           {formattedPriceDate ? ` ${formattedPriceDate}` : ''}
         </p>
       )}
+      {!priceLoading && showCardtrader && (
+        <p className="text-xs text-success">
+          {t('f_priceCardtrader')}
+          {formattedPriceDate ? ` ${formattedPriceDate}` : ''}
+        </p>
+      )}
       {!priceLoading && showEstimate && (
         <p className="text-xs text-warning">
           {t('f_priceEstimateEbay')}
           {ebaySample != null ? ` · ${ebaySample} ${t('f_estimateListings')}` : ''}
           {formattedPriceDate ? ` ${formattedPriceDate}` : ''}
+        </p>
+      )}
+      {/* eBay comparison — shown in the modal only, never per collection row. */}
+      {!priceLoading && showCardtrader && ebayCompare.eur != null && (
+        <p className="text-xs text-muted">
+          {t('f_ebayCompare')}: {formatEUR(ebayCompare.eur)} · {ebayCompare.sampleSize} {t('f_estimateListings')}
         </p>
       )}
       {!priceLoading && (showManual || showNoPrice) && (

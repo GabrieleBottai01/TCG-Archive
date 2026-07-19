@@ -16,6 +16,7 @@ const STYLE: Record<string, string> = {
   euReferenceStrong: 'border-solid border-success text-success',
   euReferenceWeak: 'border-dashed border-warning text-warning',
   cardmarket: 'border-solid border-success text-success',
+  cardtrader: 'border-solid border-success text-success',
   estimate: 'border-dashed border-warning text-warning',
   manual: 'border-dotted border-muted text-muted',
   none: 'border-dotted border-muted text-muted',

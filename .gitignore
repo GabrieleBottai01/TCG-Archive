@@ -64,3 +64,5 @@ dist/
 
 # Real eBay API sample — reference only, not distributed (eBay ToS)
 docs/reference/ebay-browse-sample.json
+# Real Cardtrader API sample — reference only, local build reference
+docs/reference/cardtrader-sample.json

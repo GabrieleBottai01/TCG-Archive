@@ -16,7 +16,7 @@
 // Derived rather than stored: `marketValueSource` says AUTO/MANUAL, and the
 // `externalId` prefix says which provider AUTO means.
 
-export type PriceSourceKind = 'euReference' | 'cardmarket' | 'estimate' | 'manual' | 'none'
+export type PriceSourceKind = 'euReference' | 'cardmarket' | 'cardtrader' | 'estimate' | 'manual' | 'none'
 
 export type Strength = 'STRONG' | 'WEAK' | 'NONE'
 
@@ -38,6 +38,7 @@ export type PriceSourceInput = {
   marketValueSource: string | null
   language?: string | null
   euReference?: EuReference | null
+  autoPriceSource?: string | null
 }
 
 export type PriceSource = {
@@ -113,6 +114,9 @@ export function priceSourceOf(i: PriceSourceInput): PriceSource {
     // The sealed AUTO price is now the live eBay EU median (tcgcsv only fills in
     // when eBay finds nothing), so there is no "priced off the English product"
     // caveat any more — it is a European estimate.
+    //
+    // Cardtrader is the primary EU marketplace price; the eBay median is the fallback.
+    if (i.autoPriceSource === 'cardtrader') return { kind: 'cardtrader', langMismatch: false }
     return { kind: 'estimate', langMismatch: false }
   }
   if (i.marketValue > 0) return { kind: 'manual', langMismatch: false }
@@ -123,6 +127,7 @@ export function priceSourceOf(i: PriceSourceInput): PriceSource {
 export const PRICE_SOURCE_KEY: Record<PriceSourceKind, string> = {
   euReference: 'src_euReference',
   cardmarket: 'src_cardmarket',
+  cardtrader: 'src_cardtrader',
   estimate: 'src_estimate',
   manual: 'src_manual',
   none: 'src_none',
