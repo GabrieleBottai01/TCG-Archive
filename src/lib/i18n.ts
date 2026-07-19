@@ -161,6 +161,7 @@ const it: Dict = {
 
   // Price provenance, shown wherever a value is shown.
   src_cardmarket: 'Cardmarket EUR',
+  src_cardtrader: 'Cardtrader EU',
   src_estimate: 'Stima eBay EU',
   src_manual: 'Inserito a mano',
   src_none: 'Nessun valore',
@@ -363,6 +364,7 @@ const en: Dict = {
 
   // Price provenance, shown wherever a value is shown.
   src_cardmarket: 'Cardmarket EUR',
+  src_cardtrader: 'Cardtrader EU',
   src_estimate: 'eBay EU estimate',
   src_manual: 'Entered by hand',
   src_none: 'No value',
