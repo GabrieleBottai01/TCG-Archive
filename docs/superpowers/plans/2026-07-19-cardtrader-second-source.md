@@ -12,7 +12,7 @@
 
 - Spec: `docs/superpowers/specs/2026-07-19-cardtrader-second-source-design.md`.
 - **Value precedence:** observatory STRONG `euReference` > Cardtrader (min EUR listing) > eBay estimate (median) > MANUAL. Do NOT change the STRONG gate in `effectiveValue`.
-- Cardtrader value = **minimum** `price.cents/100` over products passing: `price.currency === 'EUR'` AND `bundle_size === 1` AND `graded === false` AND `on_vacation === false`. The item's language is applied via the marketplace API `language` param, not client-side.
+- Cardtrader value = **minimum** `price.cents/100` over products passing (REAL shapes confirmed from the Task-1 sample): `price.currency === 'EUR'` AND `graded === false` AND `on_vacation === false` AND `(bundle_size == null || bundle_size <= 1)` (bundle_size is `null` for normal single listings — do NOT require `=== 1`) AND, when a language is given, `properties_hash.pokemon_language === <lang>`. Do NOT filter on `properties_hash.sealed` — it is `false` even for genuinely sealed products. Language is applied BOTH via the marketplace API `language` param AND client-side on `pokemon_language` ('it'/'en'/'jp').
 - **Token is a secret:** `CARDTRADER_JWT` lives only in env (local `.env` + Netlify), never committed, never printed. Scripts read it from `process.env.CARDTRADER_JWT` — never inline the literal. The controller and subagents must never echo the token value.
 - **Absent token → graceful:** no `CARDTRADER_JWT` (or `/info` fails) means the Cardtrader source is inactive and pricing falls back to eBay. No crash.
 - Cardtrader base URL `https://api.cardtrader.com/api/v2`; auth header `Authorization: Bearer <JWT>`. `GET /marketplace/products` is limited to ~1 req/s — serialize those calls.
@@ -171,8 +171,8 @@ git commit -m "feat(pricing): add cardtraderBlueprintId + autoPriceSource, exten
 **Interfaces:**
 - Produces: types `CtExpansion { id: number; game_id: number; code: string; name: string }`,
   `CtBlueprint { id: number; name: string; expansion_id: number; category_id?: number }`,
-  `CtProduct { price: { cents: number; currency: string }; quantity: number; bundle_size: number; graded: boolean; on_vacation: boolean; properties_hash?: Record<string, unknown> }`.
-- Produces: `lowestSealedEur(products: CtProduct[]): { eur: number | null; sampleSize: number }` (pure).
+  `CtProduct { price: { cents: number; currency: string }; quantity: number; bundle_size: number | null; graded: boolean; on_vacation: boolean; properties_hash?: { pokemon_language?: string; [k: string]: unknown } }`.
+- Produces: `lowestSealedEur(products: CtProduct[], language?: string): { eur: number | null; sampleSize: number }` (pure). `language` (e.g. 'it'/'en'/'jp') filters on `properties_hash.pokemon_language`; omitted = no language filter.
 - Produces (live, cached 24h): `getPokemonGameId()`, `getExpansions()`, `getBlueprints(expansionId: number)`, `getMarketplace(blueprintId: number, opts?: { language?: string }): Promise<CtProduct[]>`, and `__resetCardtraderCache()`. `cardtraderEnabled(): boolean` returns `!!process.env.CARDTRADER_JWT`.
 
 - [ ] **Step 1: Write the failing test for `lowestSealedEur`**
@@ -183,9 +183,12 @@ Create `src/lib/pricing/__tests__/cardtrader.test.ts` (fixtures mirror the real 
 import { describe, it, expect } from 'vitest'
 import { lowestSealedEur, type CtProduct } from '@/lib/pricing/cardtrader'
 
+// Real single listings have bundle_size === null (confirmed in the Task-1 sample);
+// pokemon_language distinguishes markets whose prices differ.
 const p = (over: Partial<CtProduct> = {}): CtProduct => ({
   price: { cents: 14000, currency: 'EUR' },
-  quantity: 1, bundle_size: 1, graded: false, on_vacation: false,
+  quantity: 1, bundle_size: null, graded: false, on_vacation: false,
+  properties_hash: { pokemon_language: 'it' },
   ...over,
 })
 
@@ -198,14 +201,23 @@ describe('lowestSealedEur', () => {
     ])).toEqual({ eur: 135, sampleSize: 3 })
   })
 
-  it('drops non-EUR, multi-item bundles, graded slabs and vacation sellers', () => {
+  it('drops non-EUR, multi-item lots (bundle_size > 1), graded slabs and vacation sellers', () => {
     expect(lowestSealedEur([
       p({ price: { cents: 9000, currency: 'USD' } }),   // not EUR
-      p({ price: { cents: 8000, currency: 'EUR' }, bundle_size: 6 }), // a 6-pack, not one unit
+      p({ price: { cents: 8000, currency: 'EUR' }, bundle_size: 6 }), // a 6-copy lot, not one unit
       p({ price: { cents: 7000, currency: 'EUR' }, graded: true }),   // graded
       p({ price: { cents: 6000, currency: 'EUR' }, on_vacation: true }), // unbuyable
-      p({ price: { cents: 13000, currency: 'EUR' } }), // the only qualifying one
+      p({ price: { cents: 13000, currency: 'EUR' } }), // the only qualifying one (bundle_size null)
     ])).toEqual({ eur: 130, sampleSize: 1 })
+  })
+
+  it('filters by pokemon_language when a language is given', () => {
+    const products = [
+      p({ price: { cents: 5000, currency: 'EUR' }, properties_hash: { pokemon_language: 'en' } }),
+      p({ price: { cents: 9000, currency: 'EUR' }, properties_hash: { pokemon_language: 'it' } }),
+    ]
+    expect(lowestSealedEur(products, 'it')).toEqual({ eur: 90, sampleSize: 1 }) // ignores the cheaper EN listing
+    expect(lowestSealedEur(products)).toEqual({ eur: 50, sampleSize: 2 })       // no language filter → both
   })
 
   it('returns null when nothing qualifies', () => {
@@ -239,10 +251,10 @@ export type CtBlueprint = { id: number; name: string; expansion_id: number; cate
 export type CtProduct = {
   price: { cents: number; currency: string }
   quantity: number
-  bundle_size: number
+  bundle_size: number | null // null for a normal single listing; > 1 is a multi-copy lot
   graded: boolean
   on_vacation: boolean
-  properties_hash?: Record<string, unknown>
+  properties_hash?: { pokemon_language?: string; [k: string]: unknown }
 }
 
 export function cardtraderEnabled(): boolean {
@@ -306,12 +318,26 @@ export async function getMarketplace(blueprintId: number, opts?: { language?: st
 
 /**
  * Pure: the minimum EUR price (in whole euros) among products that are a single
- * sealed unit a buyer could actually purchase. Language is filtered upstream via
- * the marketplace `language` param, so this stays language-agnostic.
+ * sealed unit a buyer could actually purchase, optionally restricted to one
+ * pokemon_language (prices differ by market). Field shapes confirmed against the
+ * Task-1 sample: bundle_size is null for normal single listings (NOT 1), and
+ * properties_hash.sealed is false even for real sealed products (so it is not a
+ * filter). Language is passed to the marketplace API too; this client-side check
+ * is the backstop.
  */
-export function lowestSealedEur(products: CtProduct[]): { eur: number | null; sampleSize: number } {
+export function lowestSealedEur(
+  products: CtProduct[],
+  language?: string,
+): { eur: number | null; sampleSize: number } {
   const eur = products
-    .filter((p) => p.price?.currency === 'EUR' && p.bundle_size === 1 && !p.graded && !p.on_vacation)
+    .filter(
+      (p) =>
+        p.price?.currency === 'EUR' &&
+        !p.graded &&
+        !p.on_vacation &&
+        (p.bundle_size == null || p.bundle_size <= 1) &&
+        (!language || p.properties_hash?.pokemon_language === language),
+    )
     .map((p) => p.price.cents / 100)
   if (eur.length === 0) return { eur: null, sampleSize: 0 }
   return { eur: Math.min(...eur), sampleSize: eur.length }
@@ -609,7 +635,7 @@ Note: a Cardtrader call that throws must not kill the eBay fallback — wrap the
       if (blueprintId == null) blueprintId = await resolveBlueprintId(i.name)
       if (blueprintId != null) {
         const products = await getMarketplace(blueprintId, { language: CT_LANG[language] ?? 'it' })
-        const { eur } = lowestSealedEur(products)
+        const { eur } = lowestSealedEur(products, CT_LANG[language] ?? 'it')
         if (eur != null) return { value: eur, source: 'AUTO', origin: 'cardtrader', cardtraderBlueprintId: blueprintId }
       }
     }
