@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { lowestSealedEur, getPokemonGameId, __resetCardtraderCache, type CtProduct } from '@/lib/pricing/cardtrader'
+import { resolveBlueprint, type CtExpansion, type CtBlueprint } from '@/lib/pricing/cardtrader'
 
 // Real single listings have bundle_size === null (confirmed in the Task-1 sample);
 // pokemon_language distinguishes markets whose prices differ.
@@ -60,5 +61,31 @@ describe('getPokemonGameId', () => {
       __resetCardtraderCache()
       process.env.CARDTRADER_JWT = prev
     }
+  })
+})
+
+const EXPS: CtExpansion[] = [
+  { id: 10, game_id: 1, code: 'PAF', name: 'Paldean Fates' },
+  { id: 11, game_id: 1, code: 'PAR', name: 'Paradox Rift' },
+]
+const BLUEPRINTS: Record<number, CtBlueprint[]> = {
+  10: [
+    { id: 100, name: 'Paldean Fates Elite Trainer Box', expansion_id: 10 },
+    { id: 101, name: 'Paldean Fates Booster Bundle', expansion_id: 10 },
+    { id: 102, name: 'Paldean Fates Booster Box', expansion_id: 10 },
+  ],
+  11: [{ id: 110, name: 'Paradox Rift Elite Trainer Box', expansion_id: 11 }],
+}
+const lookup = (id: number) => BLUEPRINTS[id] ?? []
+
+describe('resolveBlueprint', () => {
+  it('maps an English catalogue name to the right expansion + product-type blueprint', () => {
+    expect(resolveBlueprint('Paldean Fates Elite Trainer Box', EXPS, lookup)).toBe(100)
+  })
+  it('distinguishes product types within the same expansion', () => {
+    expect(resolveBlueprint('Paldean Fates Booster Box', EXPS, lookup)).toBe(102)
+  })
+  it('returns null when no expansion name is contained in the product name', () => {
+    expect(resolveBlueprint('Surging Sparks Elite Trainer Box', EXPS, lookup)).toBeNull()
   })
 })
