@@ -306,7 +306,8 @@ export function Dashboard({ items, snapshots = [] }: DashboardProps) {
                         <Money value={itemDifference(item)} signed />
                         {itemDifferencePercent(item) !== null && (
                           <span className="ml-2 text-xs text-muted">
-                            {itemDifferencePercent(item)! >= 0 ? '+' : '−'}
+                            {/* ASCII '-' on purpose: it sits next to Money, which uses formatEUR's hyphen. */}
+                            {itemDifferencePercent(item)! >= 0 ? '+' : '-'}
                             {Math.abs(itemDifferencePercent(item)!).toFixed(1)}%
                           </span>
                         )}
@@ -332,7 +333,8 @@ export function Dashboard({ items, snapshots = [] }: DashboardProps) {
                         <Money value={itemDifference(item)} signed />
                         {itemDifferencePercent(item) !== null && (
                           <span className="ml-2 text-xs text-muted">
-                            {itemDifferencePercent(item)! >= 0 ? '+' : '−'}
+                            {/* ASCII '-' on purpose: it sits next to Money, which uses formatEUR's hyphen. */}
+                            {itemDifferencePercent(item)! >= 0 ? '+' : '-'}
                             {Math.abs(itemDifferencePercent(item)!).toFixed(1)}%
                           </span>
                         )}
