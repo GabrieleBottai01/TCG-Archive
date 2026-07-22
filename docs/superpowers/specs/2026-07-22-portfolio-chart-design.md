@@ -64,6 +64,17 @@ it renders an honest empty state naming when collection started ("Sto raccoglien
 `totalValue` only. Cost is already on the dashboard as a number, and a second line doubles the
 chart's complexity for a figure that does not move day to day. Left as a possible follow-up.
 
+### 6a. Marks, colour and the hover layer (per the `dataviz` skill)
+
+- **One series ⇒ no legend** — the heading names it. Line is **2px**; grid and axes are recessive
+  (muted, thin); no marker on every point.
+- **The line wears the app's primary accent, not a semantic colour.** A line as a whole is not "up"
+  or "down", so colouring it green/red would misstate it. The **delta text** carries the semantic
+  green/red instead. Text never wears the series colour.
+- **A crosshair + tooltip ships in v1.** An SVG line chart is interactive by default (and it is
+  exactly Collectr's floating value card): hovering shows the day and its value. Zoom and pan stay
+  out of scope.
+
 ### 7. Placement
 
 Directly under the balance hero in `Dashboard`, so the headline number and its history read as one
@@ -77,7 +88,7 @@ unit.
 - No cost-basis second line.
 - No rendering of `pricesAsOf` staleness yet (recorded by A; a later pass can dim stale stretches).
 - No movers/trending list — that is C.
-- No zoom, pan, or tooltip-follow interaction; a single hover readout is enough for v1.
+- No zoom or pan. (A crosshair + hover tooltip IS in scope — see §6a.)
 
 ## Affected / new files
 
