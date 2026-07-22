@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildSnapshot, type SnapshotItem } from '@/lib/snapshots/portfolioSnapshot'
+import { buildSnapshot, startOfUtcDay, type SnapshotItem } from '@/lib/snapshots/portfolioSnapshot'
 import { collectionTotals } from '@/lib/value'
 
 const item = (over: Partial<SnapshotItem> = {}): SnapshotItem => ({
@@ -55,5 +55,12 @@ describe('buildSnapshot', () => {
     expect(buildSnapshot([])).toEqual({
       totalValue: 0, totalCost: 0, itemCount: 0, pieceCount: 0, pricesAsOf: null, items: [],
     })
+  })
+})
+
+describe('startOfUtcDay', () => {
+  it('truncates to midnight UTC so one calendar day yields one row', () => {
+    expect(startOfUtcDay(new Date('2026-07-22T23:59:59.999Z'))).toEqual(new Date('2026-07-22T00:00:00.000Z'))
+    expect(startOfUtcDay(new Date('2026-07-22T00:00:00.000Z'))).toEqual(new Date('2026-07-22T00:00:00.000Z'))
   })
 })
