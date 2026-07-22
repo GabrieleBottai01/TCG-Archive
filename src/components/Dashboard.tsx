@@ -11,12 +11,15 @@ import { SummaryCard } from '@/components/SummaryCard'
 import { GameBadge } from '@/components/GameBadge'
 import { useT, CONDITION_LABELS } from '@/lib/i18n'
 import type { PlainItem } from '@/components/CollectionView'
+import { PortfolioChart } from '@/components/PortfolioChart'
+import type { SnapshotPoint } from '@/lib/snapshots/series'
 
 interface DashboardProps {
   items: PlainItem[]
+  snapshots?: SnapshotPoint[]
 }
 
-export function Dashboard({ items }: DashboardProps) {
+export function Dashboard({ items, snapshots = [] }: DashboardProps) {
   const t = useT()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -121,6 +124,8 @@ export function Dashboard({ items }: DashboardProps) {
           </div>
         </div>
       </section>
+
+      <PortfolioChart points={snapshots} />
 
       {/* Secondary stats */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
