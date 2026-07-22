@@ -114,6 +114,7 @@ model Item {
   marketValueSource    ValueSource     @default(MANUAL)
   marketValueUpdatedAt DateTime?
   notes                String?
+  valueSnapshots       ItemValueSnapshot[]
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
 
@@ -147,4 +148,32 @@ model PriceReference {            // derivato dell'utente — permanente, pochi 
   quickSales     Int              // spariti in <48h
   strength       String           // STRONG | WEAK | NONE
   @@unique([productKey, lang, day])
+}
+
+model PortfolioSnapshot {          // immutable daily curve — never recomputed from items
+  id         String    @id @default(cuid())
+  userId     String
+  day        DateTime  @db.Date
+  totalValue Float
+  totalCost  Float
+  itemCount  Int
+  pieceCount Int
+  /// Oldest marketValueUpdatedAt among AUTO-priced items — how stale this point's inputs were.
+  pricesAsOf DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([userId, day])
+  @@index([userId, day])
+}
+
+model ItemValueSnapshot {          // per-item history; powers movers + sparklines. Follows its item.
+  id       String   @id @default(cuid())
+  itemId   String
+  day      DateTime @db.Date
+  valueEur Float                   // per-UNIT effective value that day
+  quantity Int
+  item     Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, day])
+  @@index([itemId, day])
 }
