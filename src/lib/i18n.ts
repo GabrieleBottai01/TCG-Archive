@@ -187,6 +187,7 @@ const it: Dict = {
   chart_needTwoDays: 'Il grafico comparirà appena ci sono almeno due giorni di storico.',
   chart_noData: 'Nessuno storico ancora: comparirà dopo il primo aggiornamento dei prezzi.',
   chart_rangeEmpty: 'Nessun dato in questo intervallo.',
+  chart_rangeOnePoint: 'Un solo giorno di dati in questo intervallo: prova un intervallo più ampio.',
 
   // Footer
   footer_tagline: 'Il caveau della tua collezione.',
@@ -399,6 +400,7 @@ const en: Dict = {
   chart_needTwoDays: 'The chart appears as soon as there are at least two days of history.',
   chart_noData: 'No history yet: it will appear after the first price refresh.',
   chart_rangeEmpty: 'No data in this range.',
+  chart_rangeOnePoint: 'Only one day of data in this range — try a wider one.',
 
   footer_tagline: 'The vault for your collection.',
 

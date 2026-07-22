@@ -77,17 +77,26 @@ export function Dashboard({ items, snapshots = [] }: DashboardProps) {
 
   if (items.length === 0) {
     return (
-      <div className="py-20 text-center">
-        <h1 className="font-display text-2xl font-bold text-fg mb-4">{t('dash_title')}</h1>
-        <p className="text-muted mb-6">
-          {t('dash_emptyDesc')}
-        </p>
-        <Link
-          href="/collezione"
-          className="inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-on-primary glow-violet hover:bg-primary-hover transition-colors"
-        >
-          {t('dash_goToCollection')}
-        </Link>
+      <div className="py-20">
+        <div className="text-center">
+          <h1 className="font-display text-2xl font-bold text-fg mb-4">{t('dash_title')}</h1>
+          <p className="text-muted mb-6">
+            {t('dash_emptyDesc')}
+          </p>
+          <Link
+            href="/collezione"
+            className="inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-on-primary glow-violet hover:bg-primary-hover transition-colors"
+          >
+            {t('dash_goToCollection')}
+          </Link>
+        </div>
+        {/* An emptied collection still HAS a history: liquidating it must not
+            erase the record of what it was worth. */}
+        {snapshots.length > 0 && (
+          <div className="mt-12 text-left">
+            <PortfolioChart points={snapshots} />
+          </div>
+        )}
       </div>
     )
   }

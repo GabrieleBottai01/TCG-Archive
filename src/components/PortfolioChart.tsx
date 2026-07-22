@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { useT, useLang } from '@/lib/i18n'
 import { formatEUR } from '@/lib/format'
 import {
-  RANGES, filterRange, computeDelta, buildChartGeometry,
+  RANGES, filterRange, computeDelta, buildChartGeometry, chartState,
   type SnapshotPoint, type Range,
 } from '@/lib/snapshots/series'
 
@@ -15,9 +15,19 @@ import {
 // Below two points in the chosen range we say so instead of drawing: a line
 // through a single point reads as a flat market, which is a claim about data we
 // do not have.
+//
+// The SVG is drawn with preserveAspectRatio="none" so the 600x140 viewBox fills
+// the element exactly: no letterbox gutters, and the pointer's x-ratio over the
+// element box IS the x-ratio over the drawing. The cost is a non-uniform scale,
+// so strokes are vector-effect'd and anything that must not be squashed (the
+// hover dot, the axis labels) is HTML positioned over the SVG instead.
 
 const W = 600
 const H = 140
+
+// Below this the change is a rounding artefact, not a movement: show it neutral
+// rather than dressing a €0.00 in green.
+const NEUTRAL_EPSILON = 0.005
 
 export function PortfolioChart({ points }: { points: SnapshotPoint[] }) {
   const t = useT()
@@ -28,21 +38,48 @@ export function PortfolioChart({ points }: { points: SnapshotPoint[] }) {
   const inRange = useMemo(() => filterRange(points, range, new Date()), [points, range])
   const geometry = useMemo(() => buildChartGeometry(inRange, W, H), [inRange])
   const delta = useMemo(() => computeDelta(inRange), [inRange])
+  const state = useMemo(() => chartState(points, inRange), [points, inRange])
 
   const locale = lang === 'en' ? 'en-GB' : 'it-IT'
-  const fmtDay = (iso: string) => new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short' })
-  const firstDay = points.length > 0 ? fmtDay(points[0].day) : null
+  // The rows are UTC day values: format them in UTC, or a negative-offset viewer
+  // reads yesterday's label (and the server render disagrees with the client's).
+  const fmtDay = (iso: string) =>
+    new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', timeZone: 'UTC' })
 
   const hovered = hover !== null && geometry ? geometry.coords[hover] : null
 
+  const deltaTone =
+    delta === null ? '' :
+      delta.absolute > NEUTRAL_EPSILON ? 'text-success' :
+        delta.absolute < -NEUTRAL_EPSILON ? 'text-danger' : 'text-muted'
+  const deltaSign =
+    delta === null ? '' :
+      delta.absolute > NEUTRAL_EPSILON ? '+' :
+        delta.absolute < -NEUTRAL_EPSILON ? '−' : ''
+
+  const firstLabel = inRange.length > 0 ? fmtDay(inRange[0].day) : null
+  const lastLabel = inRange.length > 0 ? fmtDay(inRange[inRange.length - 1].day) : null
+  const ariaLabel = geometry
+    ? [
+      t('chart_title'),
+      range,
+      `${firstLabel} → ${lastLabel}`,
+      formatEUR(inRange[inRange.length - 1].totalValue),
+      delta
+        ? `${deltaSign}${formatEUR(Math.abs(delta.absolute))}${delta.percent !== null ? ` (${deltaSign}${Math.abs(delta.percent).toFixed(1)}%)` : ''}`
+        : null,
+    ].filter(Boolean).join(' — ')
+    : t('chart_title')
+
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-xs font-medium uppercase tracking-wider text-muted">{t('chart_title')}</h2>
         {delta && (
-          <p className={`text-sm font-medium ${delta.absolute >= 0 ? 'text-success' : 'text-danger'}`}>
-            {delta.absolute >= 0 ? '+' : '−'}{formatEUR(Math.abs(delta.absolute))}
-            {delta.percent !== null && ` (${delta.absolute >= 0 ? '+' : '−'}${Math.abs(delta.percent).toFixed(1)}%)`}
+          <p className={`text-sm font-medium ${deltaTone}`}>
+            {deltaSign}{formatEUR(Math.abs(delta.absolute))}
+            {delta.percent !== null && ` (${deltaSign}${Math.abs(delta.percent).toFixed(1)}%)`}
+            {' '}<span className="text-muted font-normal">· {range}</span>
           </p>
         )}
       </div>
@@ -65,51 +102,75 @@ export function PortfolioChart({ points }: { points: SnapshotPoint[] }) {
       </div>
 
       <div className="mt-3">
-        {geometry ? (
+        {state.kind === 'chart' && geometry ? (
           <>
-            <svg
-              viewBox={`0 0 ${W} ${H}`}
-              className="h-36 w-full"
-              role="img"
-              aria-label={`${t('chart_title')} — ${formatEUR(inRange[inRange.length - 1].totalValue)}`}
-              onMouseLeave={() => setHover(null)}
-              onMouseMove={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect()
-                const ratio = (e.clientX - rect.left) / rect.width
-                const i = Math.round(ratio * (geometry.coords.length - 1))
-                setHover(Math.max(0, Math.min(geometry.coords.length - 1, i)))
-              }}
-            >
-              <path d={geometry.areaPath} className="fill-primary-soft" />
-              <path
-                d={geometry.path}
-                fill="none"
-                strokeWidth={2}
-                className="stroke-primary"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-              />
+            <div className="relative h-36 w-full">
+              <svg
+                viewBox={`0 0 ${W} ${H}`}
+                preserveAspectRatio="none"
+                className="h-full w-full"
+                role="img"
+                aria-label={ariaLabel}
+                onPointerLeave={() => setHover(null)}
+                onPointerMove={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const ratio = (e.clientX - rect.left) / rect.width
+                  const i = Math.round(ratio * (geometry.coords.length - 1))
+                  setHover(Math.max(0, Math.min(geometry.coords.length - 1, i)))
+                }}
+              >
+                <path d={geometry.areaPath} className="fill-primary-soft" />
+                <path
+                  d={geometry.path}
+                  fill="none"
+                  strokeWidth={2}
+                  vectorEffect="non-scaling-stroke"
+                  className="stroke-primary"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+                {hovered && (
+                  /* Recessive crosshair; the readout sits in text below, not on the mark. */
+                  <line
+                    x1={hovered.x} y1={0} x2={hovered.x} y2={H}
+                    strokeWidth={1}
+                    vectorEffect="non-scaling-stroke"
+                    className="stroke-muted"
+                  />
+                )}
+              </svg>
+
+              {/* The value axis, stated rather than implied: the baseline is the
+                  range's own minimum, not zero, so a small wiggle can fill the
+                  box. HTML, not SVG text — the non-uniform scale would squash it. */}
+              <span className="pointer-events-none absolute right-1 top-0 text-[10px] leading-none text-muted tabular-nums">
+                {formatEUR(geometry.max)}
+              </span>
+              <span className="pointer-events-none absolute bottom-0 right-1 text-[10px] leading-none text-muted tabular-nums">
+                {formatEUR(geometry.min)}
+              </span>
+
+              {/* The hover dot lives in HTML for the same reason: a <circle> under
+                  a non-uniform scale would draw as an ellipse. */}
               {hovered && (
-                <>
-                  {/* Recessive crosshair; the readout sits in text below, not on the mark. */}
-                  <line x1={hovered.x} y1={0} x2={hovered.x} y2={H} strokeWidth={1} className="stroke-border" />
-                  <circle cx={hovered.x} cy={hovered.y} r={4} className="fill-primary" />
-                </>
+                <span
+                  className="pointer-events-none absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"
+                  style={{ left: `${(hovered.x / W) * 100}%`, top: `${(hovered.y / H) * 100}%` }}
+                />
               )}
-            </svg>
+            </div>
             <p className="mt-1 text-xs text-muted">
               {hovered
                 ? `${fmtDay(hovered.point.day)} · ${formatEUR(hovered.point.totalValue)}`
-                : `${fmtDay(inRange[0].day)} → ${fmtDay(inRange[inRange.length - 1].day)}`}
+                : `${firstLabel} → ${lastLabel}`}
             </p>
           </>
         ) : (
           <p className="text-xs text-muted">
-            {points.length === 0
-              ? t('chart_noData')
-              : inRange.length === 0
-                ? t('chart_rangeEmpty')
-                : `${t('chart_collecting')} ${firstDay}. ${t('chart_needTwoDays')}`}
+            {state.kind === 'noData' && t('chart_noData')}
+            {state.kind === 'rangeEmpty' && t('chart_rangeEmpty')}
+            {state.kind === 'onePointInRange' && t('chart_rangeOnePoint')}
+            {state.kind === 'collecting' && `${t('chart_collecting')} ${fmtDay(state.since)}. ${t('chart_needTwoDays')}`}
           </p>
         )}
       </div>
