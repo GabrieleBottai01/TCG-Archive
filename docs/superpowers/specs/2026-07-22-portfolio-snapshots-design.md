@@ -33,7 +33,6 @@ model PortfolioSnapshot {          // the immutable portfolio curve
   pricesAsOf  DateTime?
   createdAt   DateTime @default(now())
   @@unique([userId, day])
-  @@index([userId, day])
 }
 
 model ItemValueSnapshot {          // per-item history; powers movers (C) + sparklines
@@ -44,7 +43,6 @@ model ItemValueSnapshot {          // per-item history; powers movers (C) + spar
   quantity Int
   item     Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   @@unique([itemId, day])
-  @@index([itemId, day])
 }
 ```
 
