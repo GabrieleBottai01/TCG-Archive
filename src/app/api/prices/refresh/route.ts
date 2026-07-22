@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { pickProvider } from '@/lib/pricing'
 import { requireUserId } from '@/lib/session'
-import { snapshotUser } from '@/lib/snapshots/portfolioSnapshot'
+import { snapshotUser, startOfUtcDay } from '@/lib/snapshots/portfolioSnapshot'
 
 // Auto-refresh only touches values older than this, so it can be called on every
 // page load without hammering the price API. The manual button forces a full refresh.
@@ -90,12 +90,22 @@ export async function POST(req: NextRequest) {
   await Promise.all(workers)
 
   // Keep today's point fresh: the stored marketValues only move when this route
-  // runs, so re-snapshot right after. The nightly job still guarantees a row on
-  // days the app is never opened. Upsert on (userId, day) — last write wins.
+  // runs, so re-snapshot right after — but only when it would actually add
+  // information. If nothing was repriced (the common case: 6h throttle found
+  // nothing stale), only snapshot when today's row is still missing, so a
+  // dashboard mount doesn't pay ~20 sequential DB round trips for a no-op.
+  // The nightly job still guarantees a row on days the app is never opened.
+  // Upsert on (userId, day) — last write wins.
   try {
-    await snapshotUser(prisma, userId, new Date())
-  } catch {
+    const day = startOfUtcDay(new Date())
+    const exists =
+      updated > 0
+        ? null
+        : await prisma.portfolioSnapshot.findUnique({ where: { userId_day: { userId, day } }, select: { id: true } })
+    if (updated > 0 || !exists) await snapshotUser(prisma, userId, new Date())
+  } catch (e) {
     // Never fail a price refresh because the snapshot could not be written.
+    console.error('portfolio snapshot failed', e)
   }
 
   return NextResponse.json({ updated, failed })

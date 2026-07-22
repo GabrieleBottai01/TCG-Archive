@@ -25,8 +25,9 @@ export default async function handler(): Promise<Response> {
   let snapshots = 0
   try {
     snapshots = await snapshotAllUsers(prisma, new Date())
-  } catch {
+  } catch (e) {
     // A snapshot failure must not abort the observatory run.
+    console.error('portfolio snapshot failed', e)
   }
 
   const store = createObservatoryStore(prisma)

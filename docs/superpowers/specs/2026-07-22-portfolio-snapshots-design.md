@@ -76,6 +76,15 @@ a later mover calculation can distinguish a price move from a quantity change.
 - Every write is an **upsert on `(userId, day)`** (and `(itemId, day)`), so repeated runs on the
   same day overwrite rather than duplicate. Last write of the day wins.
 
+### 3a. Day semantics
+
+`startOfUtcDay` means a day's row is UTC-bounded, not local: for a CEST user (UTC+2) the row
+labelled day D may legitimately be last written at 01:59 local time on D+1 — a later chart must not
+label these rows as local calendar days. Also: because the snapshot runs *before* the observatory
+in the nightly job, a nightly-only point is built from EU references that do not yet include that
+night's observation (on days the app is opened instead, the refresh-route write runs afterward and
+supersedes the nightly one for that day).
+
 ### 4. Staleness is recorded, not hidden
 
 `marketValue` is refreshed only when the app is used. If it is not opened for two weeks, the curve
@@ -91,6 +100,9 @@ exactly like the history itself.
 - No intra-day series (one row per day; last write wins).
 - No refreshing prices from the nightly job (Cardtrader is ~1 req/s; it would blow the 30s ceiling).
 - No snapshots for users with an empty collection (nothing to record).
+- No retention policy on `ItemValueSnapshot`. It grows as items × days (~7k rows/year at today's
+  collection size), and is deliberately left unpruned for now — unlike `EbayObservation`, which is
+  pruned at 30 days.
 
 ## Affected / new files
 
