@@ -11,12 +11,15 @@ import { SummaryCard } from '@/components/SummaryCard'
 import { GameBadge } from '@/components/GameBadge'
 import { useT, CONDITION_LABELS } from '@/lib/i18n'
 import type { PlainItem } from '@/components/CollectionView'
+import { PortfolioChart } from '@/components/PortfolioChart'
+import type { SnapshotPoint } from '@/lib/snapshots/series'
 
 interface DashboardProps {
   items: PlainItem[]
+  snapshots?: SnapshotPoint[]
 }
 
-export function Dashboard({ items }: DashboardProps) {
+export function Dashboard({ items, snapshots = [] }: DashboardProps) {
   const t = useT()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -74,17 +77,26 @@ export function Dashboard({ items }: DashboardProps) {
 
   if (items.length === 0) {
     return (
-      <div className="py-20 text-center">
-        <h1 className="font-display text-2xl font-bold text-fg mb-4">{t('dash_title')}</h1>
-        <p className="text-muted mb-6">
-          {t('dash_emptyDesc')}
-        </p>
-        <Link
-          href="/collezione"
-          className="inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-on-primary glow-violet hover:bg-primary-hover transition-colors"
-        >
-          {t('dash_goToCollection')}
-        </Link>
+      <div className="py-20">
+        <div className="text-center">
+          <h1 className="font-display text-2xl font-bold text-fg mb-4">{t('dash_title')}</h1>
+          <p className="text-muted mb-6">
+            {t('dash_emptyDesc')}
+          </p>
+          <Link
+            href="/collezione"
+            className="inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-on-primary glow-violet hover:bg-primary-hover transition-colors"
+          >
+            {t('dash_goToCollection')}
+          </Link>
+        </div>
+        {/* An emptied collection still HAS a history: liquidating it must not
+            erase the record of what it was worth. */}
+        {snapshots.length > 0 && (
+          <div className="mt-12 text-left">
+            <PortfolioChart points={snapshots} />
+          </div>
+        )}
       </div>
     )
   }
@@ -121,6 +133,8 @@ export function Dashboard({ items }: DashboardProps) {
           </div>
         </div>
       </section>
+
+      <PortfolioChart points={snapshots} />
 
       {/* Secondary stats */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
