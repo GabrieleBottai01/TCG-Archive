@@ -20,6 +20,18 @@ function valueOf(i: ValueItem): number {
 export function itemDifference(i: ValueItem): number {
   return (valueOf(i) - i.purchasePrice) * i.quantity
 }
+
+/**
+ * The item's gain or loss as a percentage of what it cost. Null when it cost
+ * nothing: a percentage off a zero base is undefined, not infinite growth —
+ * the same rule the portfolio chart's delta follows.
+ */
+export function itemDifferencePercent(i: ValueItem): number | null {
+  const cost = i.purchasePrice * i.quantity
+  if (cost === 0) return null
+  return (itemDifference(i) / cost) * 100
+}
+
 export type Totals = { totalValue: number; totalCost: number; profitLoss: number; itemCount: number; pieceCount: number }
 export function collectionTotals(items: ValueItem[]): Totals {
   const t = items.reduce((acc, i) => {
