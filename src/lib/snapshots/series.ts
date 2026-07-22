@@ -68,6 +68,10 @@ export type ChartGeometry = {
   coords: { x: number; y: number; point: SnapshotPoint }[]
   min: number
   max: number
+  /** Coords of every run whose length is exactly 1: a single measured day with a
+   *  gap on both sides draws no line segment, so it needs its own visible mark or
+   *  it reads as indistinguishable from the outage around it. */
+  soloPoints: { x: number; y: number }[]
 }
 
 /**
@@ -120,5 +124,28 @@ export function buildChartGeometry(points: SnapshotPoint[], width: number, heigh
     })
     .join(' ')
 
-  return { path, areaPath, coords, min, max }
+  const soloPoints = runs
+    .filter((run) => run.length === 1)
+    .map((run) => ({ x: run[0].x, y: run[0].y }))
+
+  return { path, areaPath, coords, min, max, soloPoints }
+}
+
+/**
+ * Index of the coord nearest the pointer, in viewBox x units. Coords are
+ * time-scaled (see `buildChartGeometry`), so a gap makes them unevenly spaced —
+ * nearest-x is the only correct hit test, never index-proportional.
+ */
+export function nearestCoordIndex(coords: { x: number }[], targetX: number): number {
+  if (coords.length === 0) return 0
+  let bestIndex = 0
+  let bestDistance = Math.abs(coords[0].x - targetX)
+  for (let i = 1; i < coords.length; i++) {
+    const distance = Math.abs(coords[i].x - targetX)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestIndex = i
+    }
+  }
+  return bestIndex
 }

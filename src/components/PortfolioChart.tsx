@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { useT, useLang } from '@/lib/i18n'
 import { formatEUR } from '@/lib/format'
 import {
-  RANGES, filterRange, computeDelta, buildChartGeometry, chartState,
+  RANGES, filterRange, computeDelta, buildChartGeometry, chartState, nearestCoordIndex,
   type SnapshotPoint, type Range,
 } from '@/lib/snapshots/series'
 
@@ -114,9 +114,8 @@ export function PortfolioChart({ points }: { points: SnapshotPoint[] }) {
                 onPointerLeave={() => setHover(null)}
                 onPointerMove={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect()
-                  const ratio = (e.clientX - rect.left) / rect.width
-                  const i = Math.round(ratio * (geometry.coords.length - 1))
-                  setHover(Math.max(0, Math.min(geometry.coords.length - 1, i)))
+                  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+                  setHover(nearestCoordIndex(geometry.coords, ratio * W))
                 }}
               >
                 <path d={geometry.areaPath} className="fill-primary-soft" />
@@ -158,6 +157,17 @@ export function PortfolioChart({ points }: { points: SnapshotPoint[] }) {
                   style={{ left: `${(hovered.x / W) * 100}%`, top: `${(hovered.y / H) * 100}%` }}
                 />
               )}
+
+              {/* A run of exactly one point draws no line segment, so a real
+                  measured day would otherwise look identical to the gap around
+                  it. Mark it, small and unobtrusive, so it stays visible. */}
+              {geometry.soloPoints.map((sp, i) => (
+                <span
+                  key={i}
+                  className="pointer-events-none absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"
+                  style={{ left: `${(sp.x / W) * 100}%`, top: `${(sp.y / H) * 100}%` }}
+                />
+              ))}
             </div>
             <p className="mt-1 text-xs text-muted">
               {hovered

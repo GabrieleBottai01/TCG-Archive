@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { filterRange, computeDelta, buildChartGeometry, chartState, type SnapshotPoint } from '@/lib/snapshots/series'
+import {
+  filterRange, computeDelta, buildChartGeometry, chartState, nearestCoordIndex, type SnapshotPoint,
+} from '@/lib/snapshots/series'
 
 const p = (day: string, totalValue: number): SnapshotPoint => ({ day, totalValue })
 const NOW = new Date('2026-07-22T12:00:00Z')
@@ -123,5 +125,53 @@ describe('buildChartGeometry', () => {
   it('closes the area path back down to the baseline', () => {
     const g = buildChartGeometry([p('2026-07-01', 10), p('2026-07-02', 30)], 100, 50)!
     expect(g.areaPath.endsWith('L0.00,50.00 Z')).toBe(true)
+  })
+
+  it('reports a lone point isolated between two gaps as a solo point', () => {
+    // Three runs: a contiguous pair, a single day stranded by >2-day gaps on
+    // both sides, and another contiguous pair.
+    const g = buildChartGeometry(
+      [
+        p('2026-07-01', 10), p('2026-07-02', 20),
+        p('2026-07-20', 15),
+        p('2026-08-05', 30), p('2026-08-06', 40),
+      ],
+      100, 50,
+    )!
+    expect(g.soloPoints).toHaveLength(1)
+    expect(g.soloPoints[0]).toEqual({ x: g.coords[2].x, y: g.coords[2].y })
+  })
+
+  it('reports no solo points when the series is fully contiguous', () => {
+    const g = buildChartGeometry([p('2026-07-01', 10), p('2026-07-02', 20), p('2026-07-04', 30)], 100, 50)!
+    expect(g.soloPoints).toEqual([])
+  })
+})
+
+describe('nearestCoordIndex', () => {
+  it('returns 0 for an empty array', () => {
+    expect(nearestCoordIndex([], 42)).toBe(0)
+  })
+
+  it('picks the exact match at either endpoint', () => {
+    const coords = [{ x: 0 }, { x: 1 }, { x: 100 }]
+    expect(nearestCoordIndex(coords, 0)).toBe(0)
+    expect(nearestCoordIndex(coords, 100)).toBe(2)
+  })
+
+  it('picks the nearest x on a gapped series, not an index-proportional guess', () => {
+    // Coords sit at x = 0, 1, 100 (a 1-day run, then a wide gap). The OLD
+    // index-proportional maths — round(ratio * (n - 1)) over a width-100 box —
+    // would map targetX 60 (ratio 0.6) to round(0.6 * 2) = 1, i.e. the point at
+    // x=1, even though x=100 is the actually-nearest coord (distance 40 vs 59).
+    // Nearest-x must not make that mistake.
+    const coords = [{ x: 0 }, { x: 1 }, { x: 100 }]
+    expect(nearestCoordIndex(coords, 40)).toBe(1) // nearest is x=1 (distance 39 vs 40)
+    expect(nearestCoordIndex(coords, 60)).toBe(2) // nearest is x=100 (distance 40 vs 59)
+  })
+
+  it('resolves an exact tie to the earlier index', () => {
+    const coords = [{ x: 0 }, { x: 10 }]
+    expect(nearestCoordIndex(coords, 5)).toBe(0)
   })
 })
