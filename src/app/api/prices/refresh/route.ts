@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { pickProvider } from '@/lib/pricing'
 import { requireUserId } from '@/lib/session'
+import { snapshotUser } from '@/lib/snapshots/portfolioSnapshot'
 
 // Auto-refresh only touches values older than this, so it can be called on every
 // page load without hammering the price API. The manual button forces a full refresh.
@@ -87,6 +88,15 @@ export async function POST(req: NextRequest) {
     }
   })
   await Promise.all(workers)
+
+  // Keep today's point fresh: the stored marketValues only move when this route
+  // runs, so re-snapshot right after. The nightly job still guarantees a row on
+  // days the app is never opened. Upsert on (userId, day) — last write wins.
+  try {
+    await snapshotUser(prisma, userId, new Date())
+  } catch {
+    // Never fail a price refresh because the snapshot could not be written.
+  }
 
   return NextResponse.json({ updated, failed })
 }
