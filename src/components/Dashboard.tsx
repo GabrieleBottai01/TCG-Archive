@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { collectionTotals, groupTotals, topByValue, topByDifference, averageValuePerPiece, itemDifference } from '@/lib/value'
+import { collectionTotals, groupTotals, topByValue, topByDifference, averageValuePerPiece, itemDifference, itemDifferencePercent } from '@/lib/value'
 import { effectiveValue } from '@/lib/priceSource'
 import { formatEUR } from '@/lib/format'
 import { Money } from '@/components/Money'
@@ -148,7 +148,7 @@ export function Dashboard({ items, snapshots = [] }: DashboardProps) {
       </div>
 
       {/* Per-game breakdown */}
-      {gameGroups.length > 0 && (
+      {gameGroups.length > 1 && (
         <section>
           <h2 className="text-xs font-medium uppercase tracking-wider text-muted mb-3">
             {t('dash_perGame')}
@@ -185,7 +185,7 @@ export function Dashboard({ items, snapshots = [] }: DashboardProps) {
       {/* Per tipo */}
       {(() => {
         const rows = groupTotals(items, (i) => i.itemType ?? '')
-        if (rows.length === 0) return null
+        if (rows.length <= 1) return null
         return (
           <section>
             <h2 className="text-xs font-medium uppercase tracking-wider text-muted mb-3">
@@ -221,7 +221,7 @@ export function Dashboard({ items, snapshots = [] }: DashboardProps) {
       {/* Per condizione */}
       {(() => {
         const rows = groupTotals(items, (i) => i.condition ?? '')
-        if (rows.length === 0) return null
+        if (rows.length <= 1) return null
         return (
           <section>
             <h2 className="text-xs font-medium uppercase tracking-wider text-muted mb-3">
@@ -304,6 +304,12 @@ export function Dashboard({ items, snapshots = [] }: DashboardProps) {
                       </div>
                       <span className="text-sm tabular-nums shrink-0">
                         <Money value={itemDifference(item)} signed />
+                        {itemDifferencePercent(item) !== null && (
+                          <span className="ml-2 text-xs text-muted">
+                            {itemDifferencePercent(item)! >= 0 ? '+' : '−'}
+                            {Math.abs(itemDifferencePercent(item)!).toFixed(1)}%
+                          </span>
+                        )}
                       </span>
                     </div>
                   ))}
@@ -324,6 +330,12 @@ export function Dashboard({ items, snapshots = [] }: DashboardProps) {
                       </div>
                       <span className="text-sm tabular-nums shrink-0">
                         <Money value={itemDifference(item)} signed />
+                        {itemDifferencePercent(item) !== null && (
+                          <span className="ml-2 text-xs text-muted">
+                            {itemDifferencePercent(item)! >= 0 ? '+' : '−'}
+                            {Math.abs(itemDifferencePercent(item)!).toFixed(1)}%
+                          </span>
+                        )}
                       </span>
                     </div>
                   ))}
