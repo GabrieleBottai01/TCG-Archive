@@ -26,33 +26,6 @@ export function PriceSourceChip({ item, className = '' }: { item: PriceSourceInp
   const t = useT()
   const source = priceSourceOf(item)
 
-  // The EU reference chip states its own footing: STRONG shows the plain number
-  // and its evidence; WEAK is tilde'd and tagged "weak data" so it is never read
-  // as settled — the value beside it is still the US estimate until STRONG.
-  if (source.kind === 'euReference' && item.euReference) {
-    const strong = source.strength === 'STRONG'
-    const { displayValue, sampleSize, sales } = item.euReference
-    const obs = `${sampleSize} ${sampleSize === 1 ? t('src_euObs1') : t('src_euObs')}`
-    const value = displayValue !== null ? `${strong ? '' : '~'}${formatEUR(displayValue)}` : ''
-    const detail = strong
-      ? `${obs} · ${sales} ${t('src_euSales')}`
-      : `${obs}, ${t('src_euNoSales')} — ${t('src_euWeak')}`
-
-    return (
-      <span className={`inline-flex flex-col gap-0.5 ${className}`}>
-        <span
-          className={`inline-flex w-fit items-center gap-1 rounded border px-1.5 py-0.5 text-[0.65rem] leading-tight ${
-            STYLE[strong ? 'euReferenceStrong' : 'euReferenceWeak']
-          }`}
-        >
-          <span aria-hidden className="h-1 w-1 shrink-0 rounded-full bg-current" />
-          {t('src_euReference')} {value}
-        </span>
-        <span className={`text-[0.65rem] leading-tight ${strong ? 'text-muted' : 'text-warning'}`}>{detail}</span>
-      </span>
-    )
-  }
-
   const { kind, langMismatch } = source
   return (
     <span className={`inline-flex flex-col gap-0.5 ${className}`}>
@@ -64,6 +37,11 @@ export function PriceSourceChip({ item, className = '' }: { item: PriceSourceInp
       </span>
       {langMismatch && (
         <span className="text-[0.65rem] leading-tight text-warning">{t('src_langWarn')}</span>
+      )}
+      {item.euReference?.displayValue != null && item.euReference.strength !== 'NONE' && (
+        <span className="text-[0.65rem] leading-tight text-muted">
+          {t('src_euReference')} ~{formatEUR(item.euReference.displayValue)}
+        </span>
       )}
     </span>
   )
