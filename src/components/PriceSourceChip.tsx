@@ -5,10 +5,10 @@ import { formatEUR } from '@/lib/format'
 import { priceSourceOf, PRICE_SOURCE_KEY, type PriceSourceInput } from '@/lib/priceSource'
 
 // €810 and €810 are not the same claim, so the border says which:
-//   solid   = a real European market price (Cardmarket via TCGdex, or a STRONG
-//             observatory reference)
-//   dashed  = a US price we converted (estimate), or a WEAK observatory reference
+//   solid   = a real European market price (Cardtrader, or Cardmarket via TCGdex)
+//   dashed  = an eBay EU estimate (median of asking listings)
 //   dotted  = a number the collector typed
+// (The eBay observatory shows only as a muted secondary line, never as the value.)
 // This is the only thing telling the reader how much to trust the figure
 // beside it, which is why it is structure and not decoration.
 
@@ -26,33 +26,6 @@ export function PriceSourceChip({ item, className = '' }: { item: PriceSourceInp
   const t = useT()
   const source = priceSourceOf(item)
 
-  // The EU reference chip states its own footing: STRONG shows the plain number
-  // and its evidence; WEAK is tilde'd and tagged "weak data" so it is never read
-  // as settled — the value beside it is still the US estimate until STRONG.
-  if (source.kind === 'euReference' && item.euReference) {
-    const strong = source.strength === 'STRONG'
-    const { displayValue, sampleSize, sales } = item.euReference
-    const obs = `${sampleSize} ${sampleSize === 1 ? t('src_euObs1') : t('src_euObs')}`
-    const value = displayValue !== null ? `${strong ? '' : '~'}${formatEUR(displayValue)}` : ''
-    const detail = strong
-      ? `${obs} · ${sales} ${t('src_euSales')}`
-      : `${obs}, ${t('src_euNoSales')} — ${t('src_euWeak')}`
-
-    return (
-      <span className={`inline-flex flex-col gap-0.5 ${className}`}>
-        <span
-          className={`inline-flex w-fit items-center gap-1 rounded border px-1.5 py-0.5 text-[0.65rem] leading-tight ${
-            STYLE[strong ? 'euReferenceStrong' : 'euReferenceWeak']
-          }`}
-        >
-          <span aria-hidden className="h-1 w-1 shrink-0 rounded-full bg-current" />
-          {t('src_euReference')} {value}
-        </span>
-        <span className={`text-[0.65rem] leading-tight ${strong ? 'text-muted' : 'text-warning'}`}>{detail}</span>
-      </span>
-    )
-  }
-
   const { kind, langMismatch } = source
   return (
     <span className={`inline-flex flex-col gap-0.5 ${className}`}>
@@ -64,6 +37,11 @@ export function PriceSourceChip({ item, className = '' }: { item: PriceSourceInp
       </span>
       {langMismatch && (
         <span className="text-[0.65rem] leading-tight text-warning">{t('src_langWarn')}</span>
+      )}
+      {item.euReference?.displayValue != null && item.euReference.strength !== 'NONE' && (
+        <span className="text-[0.65rem] leading-tight text-muted">
+          {t('src_euReference')} ~{formatEUR(item.euReference.displayValue)}
+        </span>
       )}
     </span>
   )

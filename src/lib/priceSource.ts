@@ -2,9 +2,10 @@
 //
 // The sources are not interchangeable claims:
 //  - euReference: an EU price the observatory learned from eBay (median of daily
-//                medians). The most trustworthy for sealed — but ONLY when its
-//                strength is STRONG. A WEAK reference is shown but never allowed to
-//                move the money (see effectiveValue).
+//                medians). Informational only — it is displayed as a hedged,
+//                muted secondary line but NEVER substituted for the stored value
+//                (see effectiveValue). It produced confidently-wrong lows that
+//                flipped STRONG and dragged the collection value down.
 //  - cardmarket: a real European market price (Cardmarket, via TCGdex). Trustworthy.
 //  - estimate:   a US TCGplayer price (tcgcsv) converted from USD. Indicative only —
 //                measured at roughly 2.5-3x off Cardmarket EU for sealed products.
@@ -53,30 +54,12 @@ export function isTcgcsvId(externalId: string | null): boolean {
   return !!externalId && externalId.startsWith('tcgcsv:')
 }
 
-/** A sealed tcgcsv item with a usable, non-NONE EU reference. */
-function hasShowableEuReference(i: {
-  itemType: string
-  externalId: string | null
-  euReference?: EuReference | null
-}): i is typeof i & { euReference: EuReference & { strength: 'STRONG' | 'WEAK' } } {
-  const eu = i.euReference
-  return (
-    i.itemType === 'SEALED' &&
-    isTcgcsvId(i.externalId) &&
-    !!eu &&
-    eu.displayValue !== null &&
-    eu.strength !== 'NONE'
-  )
-}
-
 /**
- * The value the collection actually counts. A STRONG EU reference replaces the US
- * estimate; anything less (WEAK/NONE/absent) leaves the stored value untouched.
- *
- * This STRONG-only gate is the containment for the observatory's known failure
- * mode — a persistently thin sample produces a confidently wrong EU number. Never
- * relax it to WEAK: a weak number moving the balance is the exact outcome the
- * whole strength system exists to prevent.
+ * The value the collection actually counts. The observatory reference is
+ * informational only — it must NEVER move the balance. It produced
+ * confidently-wrong lows that flipped STRONG and dragged the value down (a
+ * €10,70 STRONG ref for a €97 product); see the F-core spec. The stored
+ * marketValue (Cardtrader / eBay estimate / manual) is the value.
  */
 export function effectiveValue(i: {
   itemType: string
@@ -84,28 +67,12 @@ export function effectiveValue(i: {
   marketValue: number
   euReference?: EuReference | null
 }): number {
-  const eu = i.euReference
-  if (
-    i.itemType === 'SEALED' &&
-    isTcgcsvId(i.externalId ?? null) &&
-    eu?.strength === 'STRONG' &&
-    eu.displayValue !== null
-  ) {
-    return eu.displayValue
-  }
   return i.marketValue
 }
 
 export function priceSourceOf(i: PriceSourceInput): PriceSource {
   const auto = i.marketValueSource === 'AUTO'
   const hasId = !!i.externalId && i.externalId !== ''
-
-  // A usable EU reference is the top source for a sealed product — it is a real
-  // European price, not a converted US one. WEAK still shows here (amber, hedged);
-  // only the value substitution in effectiveValue is gated to STRONG.
-  if (hasShowableEuReference(i)) {
-    return { kind: 'euReference', langMismatch: false, strength: i.euReference.strength }
-  }
 
   if (auto && i.itemType === 'RAW' && hasId && !isTcgcsvId(i.externalId)) {
     return { kind: 'cardmarket', langMismatch: false }

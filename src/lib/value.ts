@@ -8,10 +8,10 @@ export type ValueItem = {
 }
 
 /**
- * The per-unit value the collection counts: the stored market value, unless a
- * STRONG EU reference has earned the right to replace it (see effectiveValue).
- * Every money figure below goes through here so a STRONG reference reaches the
- * item difference AND the collection balance in one place.
+ * The per-unit value the collection counts: the stored market value
+ * (Cardtrader / eBay estimate / manual). Every money figure below goes through
+ * here — and through effectiveValue — so the value is computed in one place. The
+ * eBay observatory reference is informational only and never moves this number.
  */
 function valueOf(i: ValueItem): number {
   return effectiveValue({ itemType: i.itemType ?? '', externalId: i.externalId, marketValue: i.marketValue, euReference: i.euReference })

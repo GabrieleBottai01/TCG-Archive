@@ -1,8 +1,7 @@
 // What the collection was worth on one day. Pure: no DB, no clock.
 //
 // Every figure goes through collectionTotals/effectiveValue — the same path the
-// dashboard renders — so a snapshot can never disagree with the headline number,
-// and a STRONG observatory reference is honoured identically in both.
+// dashboard renders — so a snapshot can never disagree with the headline number.
 
 import { collectionTotals, type ValueItem } from '@/lib/value'
 import { effectiveValue } from '@/lib/priceSource'

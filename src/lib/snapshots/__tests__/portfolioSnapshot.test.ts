@@ -25,15 +25,16 @@ describe('buildSnapshot', () => {
     expect(built.items).toEqual([{ itemId: 'a', valueEur: 30, quantity: 4 }])
   })
 
-  it('honours a STRONG EU reference exactly as the dashboard does', () => {
-    // effectiveValue substitutes a STRONG reference for the stored marketValue.
+  it('ignores the observatory reference exactly as the dashboard does — the stored value stands (F-core)', () => {
+    // effectiveValue no longer substitutes any observatory reference; the snapshot
+    // records the stored marketValue, matching the dashboard headline.
     const strong = item({
       id: 's', marketValue: 100,
       euReference: { strength: 'STRONG', displayValue: 140, sampleSize: 9, sales: 3 },
     })
     const built = buildSnapshot([strong])
-    expect(built.items[0].valueEur).toBe(140)
-    expect(built.totalValue).toBe(140)
+    expect(built.items[0].valueEur).toBe(100) // NOT the €140 STRONG ref
+    expect(built.totalValue).toBe(100)
   })
 
   it('pricesAsOf is the OLDEST marketValueUpdatedAt among AUTO-priced items', () => {

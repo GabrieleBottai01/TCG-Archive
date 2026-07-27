@@ -44,6 +44,24 @@ describe('lowestSealedEur', () => {
   })
 })
 
+describe('lowestSealedEur — robust low estimate (drops low outliers)', () => {
+  it('drops a listing below 60% of the median, then takes the min of the rest', () => {
+    // median of [58,120,125,130,140] is 125; floor = 75; 58 is dropped → min of the rest is 120.
+    const products = [58, 120, 125, 130, 140].map((c) => p({ price: { cents: c * 100, currency: 'EUR' } }))
+    expect(lowestSealedEur(products)).toEqual({ eur: 120, sampleSize: 4 })
+  })
+
+  it('leaves a tight distribution untouched', () => {
+    const products = [120, 122, 125].map((c) => p({ price: { cents: c * 100, currency: 'EUR' } }))
+    expect(lowestSealedEur(products)).toEqual({ eur: 120, sampleSize: 3 })
+  })
+
+  it('with fewer than 3 listings there is nothing to trim against — takes the plain min', () => {
+    const products = [58, 130].map((c) => p({ price: { cents: c * 100, currency: 'EUR' } }))
+    expect(lowestSealedEur(products)).toEqual({ eur: 58, sampleSize: 2 })
+  })
+})
+
 describe('getPokemonGameId', () => {
   it('reads the { array: [...] } envelope from /games', async () => {
     __resetCardtraderCache()

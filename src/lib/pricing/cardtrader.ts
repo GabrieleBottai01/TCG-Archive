@@ -85,6 +85,18 @@ export async function getMarketplace(blueprintId: number, opts?: { language?: st
   return json[String(blueprintId)] ?? []
 }
 
+// A listing below this fraction of the median is not the same product at the same
+// grade — a mispriced/damaged/foreign outlier. Drop it before taking the floor, so
+// the value is the honest "lowest you'd actually pay", not a single bad listing.
+// Low-side only: the median already handles the high side (do NOT add a high fence).
+const FLOOR_FRACTION = 0.6
+const MIN_FOR_TRIM = 3 // fewer listings than this: no meaningful median to trim against
+
+function medianOf(sortedAsc: number[]): number {
+  const mid = Math.floor(sortedAsc.length / 2)
+  return sortedAsc.length % 2 === 0 ? (sortedAsc[mid - 1] + sortedAsc[mid]) / 2 : sortedAsc[mid]
+}
+
 /**
  * Pure: the minimum EUR price (in whole euros) among products that are a single
  * sealed unit a buyer could actually purchase, optionally restricted to one
@@ -109,7 +121,11 @@ export function lowestSealedEur(
     )
     .map((p) => p.price.cents / 100)
   if (eur.length === 0) return { eur: null, sampleSize: 0 }
-  return { eur: Math.min(...eur), sampleSize: eur.length }
+  if (eur.length < MIN_FOR_TRIM) return { eur: Math.min(...eur), sampleSize: eur.length }
+  const sorted = [...eur].sort((a, b) => a - b)
+  const floor = medianOf(sorted) * FLOOR_FRACTION
+  const kept = sorted.filter((price) => price >= floor) // never empty: the median clears its own floor
+  return { eur: kept[0], sampleSize: kept.length }
 }
 
 /**

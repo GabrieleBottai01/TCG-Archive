@@ -61,14 +61,14 @@ describe('priceSourceOf', () => {
   })
 })
 
-describe('priceSourceOf — the EU reference chip', () => {
-  it('a STRONG reference outranks the US estimate as the chip source', () => {
+describe('priceSourceOf — the EU reference is never the chip source', () => {
+  it('a STRONG reference does not outrank the US estimate as the chip source', () => {
     expect(priceSourceOf({ ...sealedEstimate, euReference: eu('STRONG', 95) }))
-      .toEqual({ kind: 'euReference', langMismatch: false, strength: 'STRONG' })
+      .toEqual({ kind: 'estimate', langMismatch: false })
   })
-  it('a WEAK reference still shows its own chip (amber), not the estimate chip', () => {
+  it('a WEAK reference does not get its own chip either — still the estimate chip', () => {
     expect(priceSourceOf({ ...sealedEstimate, euReference: eu('WEAK', 95) }))
-      .toEqual({ kind: 'euReference', langMismatch: false, strength: 'WEAK' })
+      .toEqual({ kind: 'estimate', langMismatch: false })
   })
   it('NONE falls through to the eBay-EU-estimate chip', () => {
     expect(priceSourceOf({ ...sealedEstimate, euReference: eu('NONE', null) }))
@@ -82,9 +82,9 @@ describe('priceSourceOf — the EU reference chip', () => {
   })
 })
 
-describe('effectiveValue — only a STRONG reference is allowed to move the money', () => {
-  it('STRONG substitutes the EU display value for the US estimate', () => {
-    expect(effectiveValue({ ...sealedEstimate, euReference: eu('STRONG', 95) })).toBe(95)
+describe('effectiveValue — no reference, of any strength, is ever allowed to move the money', () => {
+  it('STRONG does NOT substitute — the exact bug this fix removes', () => {
+    expect(effectiveValue({ ...sealedEstimate, euReference: eu('STRONG', 95) })).toBe(250)
   })
   it('WEAK does NOT substitute — a weak number moving the balance is the whole thing to avoid', () => {
     expect(effectiveValue({ ...sealedEstimate, euReference: eu('WEAK', 95) })).toBe(250)
@@ -112,5 +112,32 @@ describe('priceSourceOf — Cardtrader', () => {
   it('is the eBay estimate otherwise', () => {
     expect(priceSourceOf({ ...sealed, autoPriceSource: 'ebay' }).kind).toBe('estimate')
     expect(priceSourceOf({ ...sealed, autoPriceSource: null }).kind).toBe('estimate')
+  })
+})
+
+describe('effectiveValue — observatory no longer overrides (F-core bug fix)', () => {
+  const strongRef = { strength: 'STRONG' as const, displayValue: 10.7, sampleSize: 25, sales: 5 }
+
+  it('returns the stored marketValue even when a STRONG euReference is present', () => {
+    // The exact bug: a STRONG €10,70 reference must NOT replace the €97 stored value.
+    expect(effectiveValue({ itemType: 'SEALED', externalId: 'tcgcsv:1:2', marketValue: 97, euReference: strongRef })).toBe(97)
+  })
+
+  it('returns marketValue when there is no reference', () => {
+    expect(effectiveValue({ itemType: 'SEALED', externalId: 'tcgcsv:1:2', marketValue: 88, euReference: null })).toBe(88)
+  })
+})
+
+describe('priceSourceOf — observatory is never the primary source', () => {
+  const withStrongRef = {
+    itemType: 'SEALED', externalId: 'tcgcsv:1:2', marketValue: 97, marketValueSource: 'AUTO',
+    language: 'IT' as string | null,
+    euReference: { strength: 'STRONG' as const, displayValue: 10.7, sampleSize: 25, sales: 5 },
+  }
+  it('a Cardtrader sealed item with a STRONG euReference is still kind cardtrader, not euReference', () => {
+    expect(priceSourceOf({ ...withStrongRef, autoPriceSource: 'cardtrader' }).kind).toBe('cardtrader')
+  })
+  it('an eBay-sourced sealed item with a STRONG euReference is kind estimate, not euReference', () => {
+    expect(priceSourceOf({ ...withStrongRef, autoPriceSource: 'ebay' }).kind).toBe('estimate')
   })
 })
