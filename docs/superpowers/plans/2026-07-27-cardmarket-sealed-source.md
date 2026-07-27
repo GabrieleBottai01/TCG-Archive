@@ -59,10 +59,10 @@ In `prisma/schema.prisma`, immediately after the `cardtraderBlueprintId` line in
   cardmarketProductId   Int?          // resolved Cardmarket idProduct for direct price-guide lookups
 ```
 
-- [ ] **Step 3: Push the column and regenerate the client**
+- [ ] **Step 3: Regenerate the Prisma client (do NOT push to the DB)**
 
-Run: `npm run db:push && npx prisma generate`
-Expected: `db push` reports the additive nullable column applied (non-destructive); `prisma generate` regenerates `src/generated/prisma`. If `db:push` cannot reach a database locally, STOP and ask Gabriele which `DATABASE_URL` to target — do not fabricate one.
+Run: `npx prisma generate`
+Expected: regenerates `src/generated/prisma` with the new field (offline — reads the schema file, does not touch any database). **Do NOT run `db:push`** here: `DATABASE_URL` points at the shared/production Neon DB, and the column is applied there only at deploy time, with Gabriele's approval (see the Deploy section). The additive nullable column is backward-compatible, so prod keeps working until then; tests mock Prisma, so they don't need the real column.
 
 - [ ] **Step 4: Add the zod field**
 
