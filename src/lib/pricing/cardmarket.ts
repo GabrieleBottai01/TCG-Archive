@@ -63,3 +63,87 @@ export function resolveCardmarketProductId(englishName: string, catalogue: CmPro
   }
   return bestScore >= MIN_SCORE ? bestId : null
 }
+
+const CATALOGUE_URL = 'https://downloads.s3.cardmarket.com/productCatalog/productList/products_nonsingles_6.json'
+const PRICEGUIDE_URL = 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_6.json'
+const TTL_MS = 24 * 60 * 60 * 1000
+// S3 serves the file to a browser UA; a bot UA can be blocked. Identify as a browser.
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
+
+const fresh = (ts: number) => Date.now() - ts < TTL_MS
+
+let catalogueCache: { data: CmProduct[]; ts: number } | null = null
+let catalogueInflight: Promise<CmProduct[]> | null = null
+let guideCache: { data: Map<number, CmPriceGuide>; ts: number } | null = null
+let guideInflight: Promise<Map<number, CmPriceGuide>> | null = null
+
+export function cardmarketEnabled(): boolean {
+  return true
+}
+
+export function __resetCardmarketCache(): void {
+  catalogueCache = null
+  catalogueInflight = null
+  guideCache = null
+  guideInflight = null
+}
+
+async function s3Json<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { 'User-Agent': UA } })
+  if (!res.ok) throw new Error(`cardmarket ${url}: ${res.status}`)
+  return (await res.json()) as T
+}
+
+export async function getNonsinglesCatalogue(): Promise<CmProduct[]> {
+  if (catalogueCache && fresh(catalogueCache.ts)) return catalogueCache.data
+  if (catalogueInflight) return catalogueInflight
+  catalogueInflight = (async () => {
+    const json = await s3Json<{ products: CmProduct[] }>(CATALOGUE_URL)
+    const data = json.products ?? []
+    catalogueCache = { data, ts: Date.now() }
+    return data
+  })()
+  try {
+    return await catalogueInflight
+  } finally {
+    catalogueInflight = null
+  }
+}
+
+export async function getPriceGuide(): Promise<Map<number, CmPriceGuide>> {
+  if (guideCache && fresh(guideCache.ts)) return guideCache.data
+  if (guideInflight) return guideInflight
+  guideInflight = (async () => {
+    const json = await s3Json<{ priceGuides: Array<{ idProduct: number; avg: number | null; low: number | null; trend: number | null }> }>(PRICEGUIDE_URL)
+    const map = new Map<number, CmPriceGuide>()
+    for (const g of json.priceGuides ?? []) {
+      map.set(g.idProduct, { avg: g.avg ?? null, low: g.low ?? null, trend: g.trend ?? null })
+    }
+    guideCache = { data: map, ts: Date.now() }
+    return map
+  })()
+  try {
+    return await guideInflight
+  } finally {
+    guideInflight = null
+  }
+}
+
+/**
+ * The Cardmarket sealed price for a product, plus the idProduct used (so the
+ * caller can persist it). Pass a stored productId to skip the catalogue scan.
+ * Returns null price when the name does not confidently resolve.
+ */
+export async function cardmarketPriceFor(
+  name: string,
+  productId?: number | null,
+): Promise<{ eur: number | null; productId: number | null }> {
+  let id = productId ?? null
+  if (id == null) {
+    const catalogue = await getNonsinglesCatalogue()
+    id = resolveCardmarketProductId(name, catalogue)
+  }
+  if (id == null) return { eur: null, productId: null }
+  const guide = await getPriceGuide()
+  return { eur: cardmarketSealedEur(guide.get(id)), productId: id }
+}
