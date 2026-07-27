@@ -24,10 +24,13 @@ const COMMON_TOKENS = new Set(['pokemon'])
 // wide margin, and an unowned set scores 0 (no set-token overlap) → null.
 const MIN_SCORE = 2
 
-/** trend, else avg, else low, else null. */
+/** First positive of trend, avg, low; else null. An explicit 0 is not a valid price. */
 export function cardmarketSealedEur(pg: CmPriceGuide | undefined): number | null {
   if (!pg) return null
-  return pg.trend ?? pg.avg ?? pg.low ?? null
+  for (const v of [pg.trend, pg.avg, pg.low]) {
+    if (v != null && v > 0) return v
+  }
+  return null
 }
 
 /**

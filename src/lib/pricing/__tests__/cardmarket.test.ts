@@ -19,6 +19,14 @@ describe('cardmarketSealedEur', () => {
     expect(cardmarketSealedEur({ trend: null, avg: null, low: null })).toBeNull()
     expect(cardmarketSealedEur(undefined)).toBeNull()
   })
+
+  it('skips an explicit 0 in favour of the next positive value', () => {
+    expect(cardmarketSealedEur({ trend: 0, avg: 114, low: 97 })).toBe(114)
+  })
+
+  it('returns null when trend, avg, and low are all 0', () => {
+    expect(cardmarketSealedEur({ trend: 0, avg: 0, low: 0 })).toBeNull()
+  })
 })
 
 describe('resolveCardmarketProductId', () => {
