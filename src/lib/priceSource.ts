@@ -83,6 +83,7 @@ export function priceSourceOf(i: PriceSourceInput): PriceSource {
     // caveat any more — it is a European estimate.
     //
     // Cardtrader is the primary EU marketplace price; the eBay median is the fallback.
+    if (i.autoPriceSource === 'cardmarket') return { kind: 'cardmarket', langMismatch: false }
     if (i.autoPriceSource === 'cardtrader') return { kind: 'cardtrader', langMismatch: false }
     return { kind: 'estimate', langMismatch: false }
   }

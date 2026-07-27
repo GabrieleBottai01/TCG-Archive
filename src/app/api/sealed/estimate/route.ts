@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const cardtraderBlueprintId = blueprintParam ? Number(blueprintParam) : null
 
   if (!name.trim() && !priceQuery.trim()) {
-    return NextResponse.json({ eur: null, sampleSize: 0, source: null, cardtraderBlueprintId: null, ebay: { eur: null, sampleSize: 0 } })
+    return NextResponse.json({ eur: null, sampleSize: 0, source: null, cardtraderBlueprintId: null, cardmarketProductId: null, ebay: { eur: null, sampleSize: 0 } })
   }
 
   try {
@@ -30,9 +30,10 @@ export async function GET(req: NextRequest) {
       sampleSize: ebay.sampleSize, // (see note) modal shows offers/annunci per source below
       source: primary?.origin ?? null,
       cardtraderBlueprintId: primary?.cardtraderBlueprintId ?? cardtraderBlueprintId,
+      cardmarketProductId: primary?.cardmarketProductId ?? null,
       ebay: { eur: ebay.eur, sampleSize: ebay.sampleSize },
     })
   } catch {
-    return NextResponse.json({ eur: null, sampleSize: 0, source: null, cardtraderBlueprintId, ebay: { eur: null, sampleSize: 0 } }, { status: 502 })
+    return NextResponse.json({ eur: null, sampleSize: 0, source: null, cardtraderBlueprintId, cardmarketProductId: null, ebay: { eur: null, sampleSize: 0 } }, { status: 502 })
   }
 }

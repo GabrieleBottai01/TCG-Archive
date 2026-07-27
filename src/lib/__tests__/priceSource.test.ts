@@ -113,6 +113,11 @@ describe('priceSourceOf — Cardtrader', () => {
     expect(priceSourceOf({ ...sealed, autoPriceSource: 'ebay' }).kind).toBe('estimate')
     expect(priceSourceOf({ ...sealed, autoPriceSource: null }).kind).toBe('estimate')
   })
+
+  it('a sealed AUTO item priced by Cardmarket reads as cardmarket', () => {
+    const s = priceSourceOf({ itemType: 'SEALED', externalId: 'tcgcsv:1:2', marketValue: 103, marketValueSource: 'AUTO', autoPriceSource: 'cardmarket' })
+    expect(s.kind).toBe('cardmarket')
+  })
 })
 
 describe('effectiveValue — observatory no longer overrides (F-core bug fix)', () => {
