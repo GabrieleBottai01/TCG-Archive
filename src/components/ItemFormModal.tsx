@@ -26,6 +26,7 @@ type FormState = {
   externalId: string
   priceQuery: string
   cardtraderBlueprintId: number | null
+  cardmarketProductId: number | null
   autoPriceSource: string
   imageUrl: string
   condition: string
@@ -71,6 +72,7 @@ function seedForm(item?: PlainItem): FormState {
       externalId: item.externalId ?? '',
       priceQuery: item.priceQuery ?? '',
       cardtraderBlueprintId: item.cardtraderBlueprintId ?? null,
+      cardmarketProductId: item.cardmarketProductId ?? null,
       autoPriceSource: item.autoPriceSource ?? '',
       imageUrl: item.imageUrl ?? '',
       condition: item.condition ?? '',
@@ -93,6 +95,7 @@ function seedForm(item?: PlainItem): FormState {
     externalId: '',
     priceQuery: '',
     cardtraderBlueprintId: null,
+    cardmarketProductId: null,
     autoPriceSource: '',
     imageUrl: '',
     condition: '',
@@ -325,6 +328,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       // Cleared until the estimate below tells us who actually priced it.
       autoPriceSource: '',
       cardtraderBlueprintId: null,
+      cardmarketProductId: null,
     }))
     setPicked(true)
     setAutoPrice(null)
@@ -349,17 +353,20 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       let eur: number | null = null
       let source: string | null = null
       let blueprintId: number | null = null
+      let cardmarketProductId: number | null = null
       let ebay: { eur: number | null; sampleSize: number } = { eur: null, sampleSize: 0 }
       if (res.ok) {
         const data = (await res.json()) as {
           eur: number | null
           source: string | null
           cardtraderBlueprintId: number | null
+          cardmarketProductId: number | null
           ebay: { eur: number | null; sampleSize: number }
         }
         eur = data.eur
         source = data.source
         blueprintId = data.cardtraderBlueprintId
+        cardmarketProductId = data.cardmarketProductId
         ebay = data.ebay
       }
       // A newer pick (or a clear) landed while this was in flight: it wins.
@@ -371,6 +378,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
           marketValueSource: 'AUTO',
           autoPriceSource: source ?? '',
           cardtraderBlueprintId: blueprintId,
+          cardmarketProductId,
         }))
         setAutoPrice(eur)
         setPriceDate(new Date().toISOString())
@@ -443,6 +451,7 @@ export function ItemFormModal({ item, onClose, onSaved }: ItemFormModalProps) {
       // the Cardtrader blueprint id it matched — both null for everything else.
       autoPriceSource: autoEligible && form.itemType === 'SEALED' ? (form.autoPriceSource || null) : null,
       cardtraderBlueprintId: autoEligible && form.itemType === 'SEALED' ? form.cardtraderBlueprintId : null,
+      cardmarketProductId: autoEligible ? form.cardmarketProductId : null,
       // imageUrl is sent for ALL types — real URL or null (never '')
       imageUrl: form.imageUrl.trim() || null,
     }

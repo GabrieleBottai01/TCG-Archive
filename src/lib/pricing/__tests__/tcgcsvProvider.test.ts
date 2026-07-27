@@ -19,6 +19,13 @@ vi.mock('@/lib/pricing/cardtrader', () => ({
   lowestSealedEur: vi.fn(),
 }))
 
+// Cardmarket is second in sealedPrice; disable it too so these tests don't hit
+// the real S3 price-guide files and keep exercising the eBay path.
+vi.mock('@/lib/pricing/cardmarket', () => ({
+  cardmarketEnabled: () => false,
+  cardmarketPriceFor: vi.fn(),
+}))
+
 import { TcgcsvProvider } from '@/lib/pricing/tcgcsvProvider'
 
 describe('TcgcsvProvider query routing', () => {
@@ -28,7 +35,7 @@ describe('TcgcsvProvider query routing', () => {
     const i = { game: 'POKEMON', itemType: 'SEALED', externalId: 'tcgcsv:1:2', name: 'Paldean Fates Elite Trainer Box', priceQuery: 'ETB destino di paldea', language: 'IT' }
     const r = await new TcgcsvProvider().fetchPrice(i)
     expect(liveEbayEstimate).toHaveBeenCalledWith('ETB destino di paldea', 'IT')
-    expect(r).toEqual({ value: 99, source: 'AUTO', origin: 'ebay', cardtraderBlueprintId: null })
+    expect(r).toEqual({ value: 99, source: 'AUTO', origin: 'ebay', cardtraderBlueprintId: null, cardmarketProductId: null })
   })
 
   it('falls back to name when priceQuery is null (pre-migration item)', async () => {

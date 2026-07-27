@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
         name: it.name,
         priceQuery: it.priceQuery,
         cardtraderBlueprintId: it.cardtraderBlueprintId,
+        cardmarketProductId: it.cardmarketProductId,
         language: it.language,
       }
       const r = await pickProvider(input).fetchPrice(input)
@@ -66,6 +67,8 @@ export async function POST(req: NextRequest) {
             autoPriceSource: r.origin ?? null,
             // Persist a newly-resolved blueprint id so next refresh is a direct lookup.
             ...(r.cardtraderBlueprintId != null ? { cardtraderBlueprintId: r.cardtraderBlueprintId } : {}),
+            // Persist a newly-resolved Cardmarket product id so next refresh is a direct lookup.
+            ...(r.cardmarketProductId != null ? { cardmarketProductId: r.cardmarketProductId } : {}),
           },
         })
         updated++
