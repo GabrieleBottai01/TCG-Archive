@@ -4,10 +4,9 @@ import { liveEbayEstimate } from './ebayEstimate'
 
 const CT_LANG: Record<string, string> = { IT: 'it', EN: 'en', JA: 'jp' }
 
-// Sealed pricing, Cardtrader-first. Cardtrader gives the lowest EUR marketplace
-// listing (native EUR, product-level); eBay's asking-median is the fallback. The
-// observatory STRONG reference still overrides both, but that happens later in
-// effectiveValue, not here.
+// Sealed pricing, Cardtrader-first. Cardtrader gives a robust low EUR marketplace
+// price (native EUR, product-level); eBay's asking-median is the fallback. The
+// eBay observatory is informational only — it never overrides this value.
 export async function sealedPrice(i: PriceInput): Promise<PriceResult | null> {
   const language = i.language ?? 'IT'
   let blueprintId: number | null = i.cardtraderBlueprintId ?? null

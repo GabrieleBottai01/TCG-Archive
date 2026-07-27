@@ -5,10 +5,10 @@ import { formatEUR } from '@/lib/format'
 import { priceSourceOf, PRICE_SOURCE_KEY, type PriceSourceInput } from '@/lib/priceSource'
 
 // €810 and €810 are not the same claim, so the border says which:
-//   solid   = a real European market price (Cardmarket via TCGdex, or a STRONG
-//             observatory reference)
-//   dashed  = a US price we converted (estimate), or a WEAK observatory reference
+//   solid   = a real European market price (Cardtrader, or Cardmarket via TCGdex)
+//   dashed  = an eBay EU estimate (median of asking listings)
 //   dotted  = a number the collector typed
+// (The eBay observatory shows only as a muted secondary line, never as the value.)
 // This is the only thing telling the reader how much to trust the figure
 // beside it, which is why it is structure and not decoration.
 
