@@ -10,6 +10,19 @@ modificati, problemi noti e come sono stati risolti.
 
 ---
 
+## 2026-08-28 — README inglese + presentazione repo pubblico
+
+**Cosa:** riscritto `README.md` da zero in **inglese**, aggiornato allo stato reale (catena sealed
+Cardtrader→Cardmarket→eBay, raw da Cardmarket/TCGdex, portfolio chart da snapshot immutabili, observatory
+informativo, pricing philosophy "fonti gratuite e keyless / valori sempre etichettati per fonte", stack
+Next.js 16 / React 19 / Prisma 7 / Neon / Tailwind 4, setup, script, struttura progetto). Il vecchio README
+italiano era datato (diceva sealed da tcgcsv). Metadati GitHub aggiornati: description EN, homepage
+`https://tcgarchive.netlify.app`, 9 topic (pokemon, tcg, trading-cards, collection-manager, nextjs, prisma,
+typescript, cardmarket, pricing). **Non aggiunta una LICENSE** (decisione legale di Gabriele; senza licenza
+il pubblico è "all rights reserved").
+
+---
+
 ## 2026-08-28 — Push progress-log + repo reso pubblico
 
 **Cosa:** consolidato il registro su `docs/AVANZAMENTO.md` (era `docs/superpowers/progress-log.md`);
